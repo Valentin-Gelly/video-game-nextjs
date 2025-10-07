@@ -1,4 +1,4 @@
-const { PrismaClient } = require('../src/generated/prisma'); // chemin relatif correct
+import {PrismaClient} from '@/generated/prisma'; // chemin relatif correct
 
 const prisma = new PrismaClient();
 
@@ -15,9 +15,9 @@ async function main() {
     // Création des jeux
     await prisma.games.createMany({
         data: [
-            { gameState: 'finished' },
-            { gameState: 'in_progress' },
-            { gameState: 'waiting' },
+            { gameState: 'finished', createdAt: new Date('2023-10-01T10:00:00Z') },
+            { gameState: 'in_progress', createdAt: new Date('2023-10-01T10:00:00Z') },
+            { gameState: 'waiting', createdAt: new Date('2023-10-01T10:00:00Z') },
         ],
     });
 
@@ -32,26 +32,31 @@ async function main() {
                 userId: allUsers[0].id,
                 gameId: allGames[0].id,
                 score: 250,
+                result: 1,
             },
             {
                 userId: allUsers[1].id,
                 gameId: allGames[0].id,
                 score: 320,
+                result: 1,
             },
             {
                 userId: allUsers[1].id,
                 gameId: allGames[1].id,
                 score: 180,
+                result: 1,
             },
             {
                 userId: allUsers[2].id,
                 gameId: allGames[2].id,
                 score: 90,
+                result: 2,
             },
             {
                 userId: allUsers[0].id,
                 gameId: allGames[2].id,
                 score: 150,
+                result: 1,
             },
         ],
     });
