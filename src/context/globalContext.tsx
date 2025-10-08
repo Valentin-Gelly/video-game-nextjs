@@ -1,53 +1,57 @@
 "use client";
 
-import { createContext, useState, useEffect, ReactNode, Dispatch, SetStateAction } from "react";
+import { useRouter } from "next/navigation";
+import {
+  createContext,
+  useState,
+  useEffect,
+  ReactNode,
+  Dispatch,
+  SetStateAction,
+} from "react";
 
 interface GlobalContextType {
-    token: string | null;
-    setToken: Dispatch<SetStateAction<string | null>>;
-    idUser: string | null;
-    setIdUser: Dispatch<SetStateAction<string | null>>;
+  token: string | null;
+  setToken: Dispatch<SetStateAction<string | null>>;
+  idUser: string | null;
+  setIdUser: Dispatch<SetStateAction<string | null>>;
 }
 
 export const GlobalContext = createContext<GlobalContextType | null>(null);
 
 interface GlobalProviderProps {
-    children: ReactNode;
+  children: ReactNode;
 }
 
 export const GlobalProvider = ({ children }: GlobalProviderProps) => {
-    const [token, setToken] = useState<string | null>(null);
-    const [idUser, setIdUser] = useState<string | null>(null);
+  const router = useRouter();
 
-    // ✅ Charger les données après le montage (donc côté client)
-    useEffect(() => {
-        const storedToken = sessionStorage.getItem("token");
-        const storedIdUser = sessionStorage.getItem("idUser");
-        if (storedToken) setToken(storedToken);
-        if (storedIdUser) setIdUser(storedIdUser);
-    }, []);
+  const [init, setInit] = useState<boolean>(true);
+  const [token, setToken] = useState<string | null>(null);
+  const [idUser, setIdUser] = useState<string | null>(null);
 
-    // ✅ Sauvegarder quand le token change
-    useEffect(() => {
-        if (token) {
-            sessionStorage.setItem("token", token);
-        } else {
-            sessionStorage.removeItem("token");
-        }
-    }, [token]);
+  useEffect(() => {
+    console.log("GlobalContext init:", init);
+    const storedToken = sessionStorage.getItem("token");
+    const storedIdUser = sessionStorage.getItem("idUser");
+    if (storedToken) setToken(storedToken);
+    if (storedIdUser) setIdUser(storedIdUser);
+    setInit(false);
+  }, []);
 
-    // ✅ Sauvegarder quand l’id change
-    useEffect(() => {
-        if (idUser) {
-            sessionStorage.setItem("idUser", idUser);
-        } else {
-            sessionStorage.removeItem("idUser");
-        }
-    }, [idUser]);
+  useEffect(() => {
+    if (token) {
+      console.log("GlobalContext token if:", token);
+      sessionStorage.setItem("token", token);
+    } else if (!init) {
+      console.log("GlobalContext token else:", token);
+      sessionStorage.removeItem("token");
+    }
+  }, [router, token]);
 
-    return (
-        <GlobalContext.Provider value={{ token, setToken, idUser, setIdUser }}>
-            {children}
-        </GlobalContext.Provider>
-    );
+  return (
+    <GlobalContext.Provider value={{ token, setToken, idUser, setIdUser }}>
+      {children}
+    </GlobalContext.Provider>
+  );
 };
