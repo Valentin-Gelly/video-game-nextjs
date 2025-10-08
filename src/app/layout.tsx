@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Image from "next/image";
-import Link from "next/link";
+import { GlobalProvider } from "@/context/globalContext";
+import Header from "@/app/component/Header";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,30 +26,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#F5F3F0]`}
-      >
-      <header className={'absolute top-0 left-0 w-full flex items-center justify-between px-8 py-4 bg-white/60 backdrop-blur-xl shadow-md'}>
-          <Link href="/">
-              <Image
-                  src="/logo.png"
-                  alt="Cita de l'or"
-                  width={350}
-                  height={40}
-                  priority
-                  className="object-contain "
-              />
-          </Link>
-
-          <Link
-              href="/login">
-              Connexion
-          </Link>
-      </header>
-      <main className="min-h-screen bg-[#F5F3F0] text-[#0F172A] flex items-center justify-center px-4">
-        {children}
-      </main>
-      </body>
+      <GlobalProvider>
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#F5F3F0]`}
+        >
+          <Header></Header>
+          <main className="min-h-screen bg-[#C2B280] text-[#0F172A]  w-full">
+            {children}
+          </main>
+        </body>
+      </GlobalProvider>
     </html>
   );
 }

@@ -1,50 +1,119 @@
-import React from "react";
-import {GameInfo} from "@/api/interfaces/GameInfo";
+'use client';
 
-export default async function Dashboard() {
+import React, {useContext, useEffect, useState} from "react";
+import {GlobalContext} from "@/context/globalContext";
 
-    const userId = 34;
+interface GameInfo {
+    id: number;
+    score: number;
+    result: number;
+    createdAt: string;
+}
 
-    const res = await fetch(`/api/users/${userId}/games`, {cache: 'no-store'}).catch(err => {
-        console.error("Failed to fetch scores:", err);
-        return new Response("[]", {status: 500});
-    });
-    const scores = await res.json();
+export default function GameList() {
+    const [scores, setScores] = useState<GameInfo[]>([]);
+    const { token, setToken, setIdUser, idUser } = useContext(GlobalContext)
+    const userId = idUser;
+
+    useEffect(() => {
+        async function loadScores() {
+            if (!userId) return;
+
+            try {
+                const response = await fetch(`/api/users/${userId}/games`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    setScores(data);
+                } else {
+                    console.error("Erreur lors de la récupération des scores");
+                }
+            } catch (error) {
+                console.error("Erreur réseau:", error);
+            }
+        }
+        loadScores();
+    }, [userId]);
 
     return (
-        <main className="min-h-[80vh] w-full bg-slate-50 p-8 mt-[20vh] sm:mt-[10vh]">
-            <header className="mb-8">
-                <h1 className="text-3xl font-bold">Tableau des scores — Citadelles</h1>
-                <p className="text-slate-600 mt-2">Clique sur une partie pour voir tous les détails.</p>
-            </header>
-            <div className="overflow-x-auto rounded-2xl shadow bg-white">
-                <table className="min-w-full divide-y divide-slate-200">
-                    <thead className="bg-slate-100">
-                    <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600">Position</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-600">Score</th>
-                    </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                    {scores.map((s: GameInfo) => (
-                        <tr key={s.id} className="hover:bg-slate-50 cursor-pointer"
-                            onClick={() => window.location.href = `/citadelles/partie/${s.id}`}>
-                            <th className="px-6 py-3 text-left font-medium tracking-wider text-slate-600">
-                                {new Date(s.createdAt).toLocaleDateString('fr-FR', {
-                                    day: '2-digit',
-                                    month: 'long',
-                                    year: 'numeric'
-                                })}
+        <div
+            className="p-10 flex flex-col items-center mt-24 w-full"
+            style={{ backgroundColor: "#C2B280" }} // beige doré
+        >
+            <div className="w-full bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl p-8">
+                <header className="mb-8">
+                    <h1 className="text-4xl font-bold mb-2" style={{ color: "#4B4E6D" }}>
+                        Tableau des Scores
+                    </h1>
+                    <p className="text-lg" style={{ color: "#7D5B3A" }}>
+                        Historique de vos parties Citadelles
+                    </p>
+                </header>
+
+                <div className="overflow-x-auto rounded-xl">
+                    <table className="min-w-full divide-y" style={{ borderColor: "#7D5B3A" }}>
+                        <thead style={{ backgroundColor: "#4B4E6D" }}>
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-white">
+                                Date
                             </th>
-                            <th className="px-6 py-3 text-left  font-medium uppercase tracking-wider text-slate-600">{s.result}</th>
-                            <th className="px-6 py-3 text-left  font-medium uppercase tracking-wider text-slate-600">{s.score}</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-white">
+                                Résultat
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-white">
+                                Score
+                            </th>
                         </tr>
-                    ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y" style={{ borderColor: "#A8D8B9" }}>
+                        {
+                            scores.length === 0 ? (
+                                <tr>
+                                    <td colSpan={3} className="px-6 py-4 text-center text-sm" style={{ color: "#4B4E6D" }}>
+                                        Aucune partie jouée pour le moment.
+                                    </td>
+                                </tr>
+                            ) :
+                                scores.map((s) => (
+                                    <tr
+                                        key={s.id}
+                                        className="transition-colors duration-200 cursor-pointer"
+                                        style={{ backgroundColor: "#A8D8B950" }}
+                                        onClick={() => (window.location.href = `/citadelles/partie/${s.id}`)}
+                                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#D9DF77")}
+                                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#A8D8B950")}
+                                    >
+                                        <td className="px-6 py-4 text-sm font-medium" style={{ color: "#4B4E6D" }}>
+                                            {new Date(s.createdAt).toLocaleDateString("fr-FR", {
+                                                day: "2-digit",
+                                                month: "long",
+                                                year: "numeric",
+                                            })}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm font-semibold" style={{ color: "#7D5B3A" }}>
+                                            {s.result === 1 ? "🏆 Victoire" : "💀 Défaite"}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm font-bold" style={{ color: "#4B4E6D" }}>
+                                            {s.score}
+                                        </td>
+                                    </tr>
+                                ))
+
+                        }
+
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
-        </main>
+            <footer className="mt-10 text-sm opacity-70" style={{ color: "#4B4E6D" }}>
+                © 2025 — Citadelles Dashboard
+            </footer>
+        </div>
     );
 }

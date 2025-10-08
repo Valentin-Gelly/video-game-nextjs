@@ -22,7 +22,6 @@ export default function CitadellesPage() {
                         <p className="mt-2 text-slate-600">Résumé clair et imprimable des règles du jeu de Bruno Faidutti.</p>
                     </div>
                 </div>
-
                 <section className="mt-6 grid gap-4 sm:grid-cols-2">
                     <div className="rounded-2xl bg-white p-4 shadow">
                         <h3 className="font-semibold">Objectif du jeu</h3>

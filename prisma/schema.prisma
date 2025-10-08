@@ -15,12 +15,18 @@ datasource db {
 }
 
 model User {
-  id       Int    @id @default(autoincrement())
-  email    String @unique
-  userName String
-  password String
+  id            Int         @id @default(autoincrement())
+  lastname      String
+  firstname     String
+  username      String
+  email         String
+  emailVerified Boolean     @default(false)
+  verifiedToken String?     @unique
+  password      String
+  GameInfos     GameInfos[]
 
-  GameScores GameInfos[]
+  @@unique([email])
+  @@map("user")
 }
 
 model GameInfos {
