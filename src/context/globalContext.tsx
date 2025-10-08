@@ -43,9 +43,10 @@ export const GlobalProvider = ({ children }: GlobalProviderProps) => {
     if (token) {
       console.log("GlobalContext token if:", token);
       sessionStorage.setItem("token", token);
-    } else if (!init) {
+    } else if (!token) {
       console.log("GlobalContext token else:", token);
       sessionStorage.removeItem("token");
+      setInit(false);
     }
   }, [router, token]);
 

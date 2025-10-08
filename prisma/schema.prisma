@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -19,13 +13,14 @@ model User {
   lastname      String
   firstname     String
   username      String
-  email         String
+  email         String      @unique
   emailVerified Boolean     @default(false)
   verifiedToken String?     @unique
   password      String
-  GameInfos     GameInfos[]
+  players       Player[]
+  gameInfos     GameInfos[]
+  Game          Game[]
 
-  @@unique([email])
   @@map("user")
 }
 
@@ -34,17 +29,102 @@ model GameInfos {
   userId    Int
   score     Int
   result    Int
-  gameId    Int
+  gameId    String
   createdAt DateTime @default(now())
 
-  user User  @relation(fields: [userId], references: [id])
-  game Games @relation(fields: [gameId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+  game Game @relation(fields: [gameId], references: [id])
+
+  @@map("game_infos")
 }
 
-model Games {
-  id        Int      @id @default(autoincrement())
-  gameState String
-  createdAt DateTime @default(now())
+model Player {
+  id     Int            @id @default(autoincrement())
+  name   String
+  gold   Int            @default(0)
+  city   BuildingCard[] @relation("PlayerCity") // Bâtiments construits
+  hand   BuildingCard[] @relation("PlayerHand") // Cartes en main
+  role   GameRole?      @relation("CurrentRole")
+  game   Game           @relation(fields: [gameId], references: [id])
+  gameId String
 
-  GameScores GameInfos[]
+  user   User? @relation(fields: [userId], references: [id])
+  userId Int?
+
+  @@map("player")
+}
+
+model Game {
+  id          String         @id
+  status      String
+  currentTurn Int?
+  players     Player[]
+  deck        BuildingCard[]
+  roles       GameRole[]
+  infos       GameInfos[]
+  description String?
+  createdAt   DateTime       @default(now())
+  createdBy   User           @relation(fields: [createdById], references: [id])
+  createdById Int
+  gameCode    String         @unique
+  gameName    String         @default("New Game")
+
+  @@map("game")
+}
+
+model BuildingCard {
+  id           Int     @id @default(autoincrement())
+  status       String  @default("deck") // deck, hand, city, discard
+  // Relation to Player city
+  playerCity   Player? @relation("PlayerCity", fields: [playerCityId], references: [id])
+  playerCityId Int?
+
+  // Relation to Player hand
+  playerHand   Player? @relation("PlayerHand", fields: [playerHandId], references: [id])
+  playerHandId Int?
+
+  // Relation to Game deck
+  game       Game?     @relation(fields: [gameId], references: [id])
+  gameId     String?
+  Building   Building? @relation(fields: [buildingId], references: [id])
+  buildingId Int?
+}
+
+model Building {
+  id          Int    @id @default(autoincrement())
+  name        String
+  cost        Int
+  color       String
+  description String
+
+  buildingCard BuildingCard[]
+
+  @@map("building")
+}
+
+model GameRole {
+  id          Int     @id @default(autoincrement())
+  isAvailable Boolean @default(true)
+
+  player   Player? @relation("CurrentRole", fields: [playerId], references: [id])
+  playerId Int?    @unique
+
+  game   Game   @relation(fields: [gameId], references: [id])
+  gameId String
+
+  roleCard   RoleCard @relation(fields: [roleCardId], references: [id])
+  roleCardId Int
+
+  @@unique([gameId])
+  @@map("game_role")
+}
+
+model RoleCard {
+  id          Int        @id @default(autoincrement())
+  name        String
+  description String
+  order       Int
+  GameRole    GameRole[]
+
+  @@map("role_card")
 }

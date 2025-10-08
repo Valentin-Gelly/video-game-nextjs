@@ -1,0 +1,111 @@
+{
+  "districts": [
+    {
+      "color": "bleu",
+      "type": "Religion",
+      "cards": [
+        { "name": "Temple", "cost": 1, "quantity": 3, "description": "" },
+        { "name": "Église", "cost": 2, "quantity": 4, "description": "" },
+        { "name": "Monastère", "cost": 3, "quantity": 3, "description": "" },
+        { "name": "Cathédrale", "cost": 5, "quantity": 2, "description": "" }
+      ]
+    },
+    {
+      "color": "jaune",
+      "type": "Noblesse",
+      "cards": [
+        { "name": "Manoir", "cost": 3, "quantity": 5, "description": "" },
+        { "name": "Château", "cost": 4, "quantity": 4, "description": "" },
+        { "name": "Palais", "cost": 5, "quantity": 2, "description": "" }
+      ]
+    },
+    {
+      "color": "vert",
+      "type": "Commerce et Artisanat",
+      "cards": [
+        { "name": "Taverne", "cost": 1, "quantity": 5, "description": "" },
+        { "name": "Échoppe", "cost": 2, "quantity": 3, "description": "" },
+        { "name": "Marché", "cost": 2, "quantity": 4, "description": "" },
+        { "name": "Comptoir", "cost": 3, "quantity": 3, "description": "" },
+        { "name": "Port", "cost": 4, "quantity": 3, "description": "" },
+        { "name": "Hôtel de ville", "cost": 5, "quantity": 2, "description": "" }
+      ]
+    },
+    {
+      "color": "rouge",
+      "type": "Soldatesque",
+      "cards": [
+        { "name": "Tour de guet", "cost": 1, "quantity": 3, "description": "" },
+        { "name": "Prison", "cost": 2, "quantity": 3, "description": "" },
+        { "name": "Caserne", "cost": 3, "quantity": 3, "description": "" },
+        { "name": "Forteresse", "cost": 5, "quantity": 2, "description": "" }
+      ]
+    },
+    {
+      "color": "violet",
+      "type": "Prestige",
+      "cards": [
+        {
+          "name": "Cour des miracles",
+          "cost": 2,
+          "quantity": 1,
+          "description": "Compte comme un quartier de la couleur de votre choix pour le décompte final."
+        },
+        {
+          "name": "Donjon",
+          "cost": 3,
+          "quantity": 2,
+          "description": "Ne peut pas être détruit par le Condottiere."
+        },
+        {
+          "name": "Laboratoire",
+          "cost": 5,
+          "quantity": 1,
+          "description": "Une fois par tour, défaussez une carte pour gagner 1 pièce d’or."
+        },
+        {
+          "name": "Manufacture",
+          "cost": 5,
+          "quantity": 1,
+          "description": "Une fois par tour, payez 3 pièces d’or pour piocher 3 cartes."
+        },
+        {
+          "name": "Observatoire",
+          "cost": 5,
+          "quantity": 1,
+          "description": "Quand vous piochez des cartes, piochez 3, gardez-en 1, défaussez les 2 autres."
+        },
+        {
+          "name": "Cimetière",
+          "cost": 5,
+          "quantity": 1,
+          "description": "Quand le Condottiere détruit un quartier, vous pouvez payer 1 or pour le reprendre."
+        },
+        {
+          "name": "Bibliothèque",
+          "cost": 6,
+          "quantity": 1,
+          "description": "Quand vous piochez des cartes, gardez-les toutes les deux."
+        },
+        {
+          "name": "École de magie",
+          "cost": 6,
+          "quantity": 1,
+          "description": "Compte comme un quartier de la couleur de votre choix pour les revenus."
+        },
+        {
+          "name": "Université",
+          "cost": 6,
+          "quantity": 1,
+          "description": "Coûte 6 or, vaut 8 points en fin de partie."
+        },
+        {
+          "name": "Dracoport",
+          "cost": 6,
+          "quantity": 1,
+          "description": "Coûte 6 or, vaut 8 points en fin de partie."
+        }
+      ]
+    }
+  ]
+}
