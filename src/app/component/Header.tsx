@@ -40,8 +40,8 @@ export default function Header() {
           <Link href="/dashboard/user">Mon profil</Link>
           <button
             onClick={() => {
-              setToken("");
-              setIdUser("");
+              setToken(null);
+              setIdUser(null);
               localStorage.removeItem("token");
               localStorage.removeItem("idUser");
               sessionStorage.removeItem("token");

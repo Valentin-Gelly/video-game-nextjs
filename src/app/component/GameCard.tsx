@@ -7,6 +7,7 @@ export default function RoleCard({
   price,
   backgroundColors,
   className,
+  isPlayed,
   type,
 }: {
   id: number;
@@ -15,15 +16,19 @@ export default function RoleCard({
   price: string;
   backgroundColors: { top: string; bottom: string };
   className?: string;
+  isPlayed?: boolean;
   type?: String;
 }) {
   const { top, bottom } = backgroundColors;
+  console.log(isPlayed);
   return (
     <div
       className={
-        "card group relative flex flex-col justify-end p-4 rounded-[10%] overflow-hidden h-52 w-40 " +
-        "transform translate-y-1/4 transition-all duration-300 hover:-translate-y-0 hover:scale-110 hover:z-20 " +
-        className
+        "card group relative overflow-hidden " +
+        (isPlayed
+          ? "h-12 w-24"
+          : "transform translate-y-1/4 transition-all duration-300 hover:-translate-y-0 hover:scale-110 hover:z-20 h-52 w-40 rounded-[10%] flex flex-col justify-end p-4 ") +
+        (className ?? "")
       }
       style={{
         background: `linear-gradient(to bottom, ${top}, ${bottom})`,
@@ -34,20 +39,24 @@ export default function RoleCard({
       <div className="absolute inset-0 flex flex-col justify-between p-4 duration-300 z-10 text-white">
         <div>
           <h2 className="text-lg font-bold mb-1">{name}</h2>
-          <p className="text-xs">{description}</p>
-          <div className="bg-[rgba(0,0,0,0.4)] flex items-center pl-1 pr-2 py-1 rounded-3xl gap-2 self-start w-fit">
-            <div className="icon h-[25px] w-[25px] rounded-full grid place-content-center bg-white">
-              <Image
-                src="/game/coin.png"
-                alt="Cita de l'or"
-                width={350}
-                height={40}
-                priority
-                className="object-contain"
-              />
+          {description && !isPlayed && <p className="text-xs">{description}</p>}
+          {isPlayed ? (
+            ""
+          ) : (
+            <div className="bg-[rgba(0,0,0,0.4)] flex items-center pl-1 pr-2 py-1 rounded-3xl gap-2 self-start w-fit">
+              <div className="icon h-[25px] w-[25px] rounded-full grid place-content-center bg-white">
+                <Image
+                  src="/game/coin.png"
+                  alt="Cita de l'or"
+                  width={350}
+                  height={40}
+                  priority
+                  className="object-contain"
+                />
+              </div>
+              <p className="text-xs">{price}</p>
             </div>
-            <p className="text-xs">{price}</p>
-          </div>
+          )}
         </div>
       </div>
       <dialog id={`my_modal_` + id} className="modal">
@@ -60,11 +69,12 @@ export default function RoleCard({
             <button
               type="button"
               className="btn btn-ghost"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation(); // <- très important
                 const modal = document.getElementById(
                   "my_modal_" + id
-                ) as HTMLDialogElement;
-                modal.close();
+                ) as HTMLDialogElement | null;
+                if (modal) modal.close();
               }}
             >
               Fermer

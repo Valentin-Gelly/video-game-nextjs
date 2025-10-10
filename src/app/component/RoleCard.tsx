@@ -26,21 +26,19 @@ export default function GameCard({
           document.getElementById("my_modal_99999999")!.showModal()
         }
       >
-        <div>
-          <h2 className="text-lg font-bold mb-1">{name}</h2>
-          <p className="text-xs">{description}</p>
-          <div className="bg-[rgba(0,0,0,0.4)] flex items-center pl-1 pr-2 py-1 rounded-3xl gap-2 self-start w-fit">
-            <div className="icon h-[25px] w-[25px] rounded-full grid place-content-center bg-white">
-              <Image
-                src="/game/coin.png"
-                alt="Cita de l'or"
-                width={350}
-                height={40}
-                priority
-                className="object-contain"
-              />
-            </div>
-          </div>
+        <div className="text-center">
+          {description != "" ? (
+            <h2 className="text-lg font-bold mb-1">{name}</h2>
+          ) : (
+            <h2 className="inline-block text-xl font-bold text-center mx-auto">
+              {name}
+            </h2>
+          )}
+          {description != "" ? (
+            <p className="text-xs text-left">{description}</p>
+          ) : (
+            ""
+          )}
         </div>
       </div>
       <dialog id="my_modal_99999999" className="modal">
