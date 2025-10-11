@@ -44,7 +44,6 @@ model Player {
   gold   Int            @default(0)
   city   BuildingCard[] @relation("PlayerCity") // Bâtiments construits
   hand   BuildingCard[] @relation("PlayerHand") // Cartes en main
-  role   GameRole?      @relation("CurrentRole")
   game   Game           @relation(fields: [gameId], references: [id])
   gameId String
 
@@ -60,7 +59,6 @@ model Game {
   currentTurn Int?
   players     Player[]
   deck        BuildingCard[]
-  roles       GameRole[]
   infos       GameInfos[]
   description String?
   createdAt   DateTime       @default(now())
@@ -102,29 +100,12 @@ model Building {
   @@map("building")
 }
 
-model GameRole {
-  id          Int     @id @default(autoincrement())
-  isAvailable Boolean @default(true)
-
-  player   Player? @relation("CurrentRole", fields: [playerId], references: [id])
-  playerId Int?    @unique
-
-  game   Game   @relation(fields: [gameId], references: [id])
-  gameId String
-
-  roleCard   RoleCard @relation(fields: [roleCardId], references: [id])
-  roleCardId Int
-
-  @@unique([gameId])
-  @@map("game_role")
-}
-
 model RoleCard {
-  id          Int        @id @default(autoincrement())
+  id          Int    @id @default(autoincrement())
   name        String
   description String
   order       Int
-  GameRole    GameRole[]
+  color       String @default("Blanc")
 
   @@map("role_card")
 }

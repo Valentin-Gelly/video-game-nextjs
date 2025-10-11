@@ -3,41 +3,35 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
-import { socket } from "../../../socket";
+import { socket } from "../../../server/socket";
 import { useRouter } from "next/navigation";
-
-interface Game {
-  id: number;
-  gameName: string;
-  description: string;
-  gameState: string;
-  gameCode: string;
-  createdAt: string;
-  createdBy: {
-    username: string;
-  };
-}
+import { GameState, Game } from "@/server/gameManager";
 
 export default function Lobby() {
   const [joinCode, setJoinCode] = useState("");
-  const [games, setGames] = useState([] as Game[]);
-  const [isConnected, setIsConnected] = useState(false);
-  const [transport, setTransport] = useState("N/A");
+  const [games, setGames] = useState(
+    [] as { game: Game; gameState: GameState }[]
+  );
   const router = useRouter();
   const [gameName, setGameName] = useState("");
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const res = await fetch("/api/games", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setGames(data);
+    socket.emit(
+      "gameList",
+      (res: {
+        ok: boolean;
+        gameList: { game: Game; gameState: GameState }[];
+      }) => {
+        setGames(res.gameList);
+        console.log("gameList", res);
       }
-      setIsLoading(false);
+    );
+
+    return () => {
+      socket.off("gameState");
     };
-    fetchUser();
   }, []);
 
   async function handleCreateGame() {
@@ -50,44 +44,34 @@ export default function Lobby() {
       return;
     }
 
-    try {
-      // Appel API de création (tu adapteras selon ton backend)
-      const res = await fetch("/api/games", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          gameName,
-          description,
-        }),
-      });
+    socket.emit(
+      "createGame",
+      { gameName, description },
+      (res: { ok: boolean; gameId?: string; error?: string }) => {
+        if (!res.ok) {
+          Swal.fire({
+            icon: "error",
+            title: "Erreur",
+            text: res.error || "Impossible de créer la partie.",
+          });
+          return;
+        }
 
-      if (!res.ok) throw new Error("Erreur lors de la création de la partie");
+        Swal.fire({
+          icon: "success",
+          title: "Partie créée 🎉",
+          text: `Ta partie "${gameName}" est prête !`,
+        });
 
-      const data = await res.json();
-
-      Swal.fire({
-        icon: "success",
-        title: "Partie créée 🎉",
-        text: `Ta partie "${data.gameName}" est prête !`,
-      });
-
-      // Ferme la modale
-      const modal = document.getElementById("my_modal_1") as HTMLDialogElement;
-      modal.close();
-
-      // Reset
-      setGameName("");
-      setDescription("");
-      router.push(`/game/game-table?id=${data.id}`);
-    } catch (err) {
-      Swal.fire({
-        icon: "error",
-        title: "Erreur",
-        text: (err as Error).message,
-      });
-    } finally {
-      setIsLoading(false);
-    }
+        const modal = document.getElementById(
+          "my_modal_1"
+        ) as HTMLDialogElement;
+        modal.close();
+        setGameName("");
+        setDescription("");
+        router.push(`/game/game-table?id=${res.gameId}`);
+      }
+    );
   }
 
   async function joinGame() {
@@ -100,32 +84,31 @@ export default function Lobby() {
       return;
     }
 
-    try {
-      // Appel API de création (tu adapteras selon ton backend)
-      const res = await fetch(`/api/games/join?code=${joinCode}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
+    setIsLoading(true);
 
-      if (!res.ok) throw new Error("Erreur lors de la création de la partie");
-      const data = await res.json();
+    socket.emit(
+      "joinGame",
+      { gameId: joinCode, playerName: "Moi" },
+      (res: { ok: boolean; error?: string; playerId?: string }) => {
+        setIsLoading(false);
 
-      Swal.fire({
-        icon: "success",
-        title: "Partie rejointe 🎉",
-        text: `Tu as rejoint la partie "${data.gameName}" !`,
-      });
+        if (!res.ok) {
+          Swal.fire({
+            icon: "error",
+            title: "Erreur",
+            text: res.error || "Impossible de rejoindre la partie.",
+          });
+          return;
+        }
 
-      // Reset
-      setJoinCode("");
-      router.push(`/game/game-table?id=${data.id}`);
-    } catch (err) {
-      Swal.fire({
-        icon: "error",
-        title: "Erreur",
-        text: (err as Error).message,
-      });
-    }
+        Swal.fire({
+          icon: "success",
+          title: "Partie rejointe 🎉",
+        });
+
+        router.push(`/game/game-table?id=${joinCode}`);
+      }
+    );
   }
 
   return (
@@ -208,9 +191,7 @@ export default function Lobby() {
         </dialog>
       </header>
 
-      {/* CONTENU PRINCIPAL */}
       <div className="flex flex-1 max-w-7xl mx-auto w-full px-6 py-8 gap-8">
-        {/* Liste des parties */}
         <section className="flex-1 space-y-6">
           <h2 className="text-3xl font-bold text-[#4B4E6D] mb-4">
             Parties disponibles
@@ -226,7 +207,7 @@ export default function Lobby() {
           )}
           {games.map((c) => (
             <article
-              key={c.id}
+              key={c.game.id}
               className="rounded-2xl border border-[#A8D8B9] bg-white/70 backdrop-blur-xl p-6 shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="flex items-center justify-between">
@@ -234,37 +215,35 @@ export default function Lobby() {
                   <h3 className="text-lg font-semibold text-[#4B4E6D]">
                     Nom de la partie :{" "}
                     <span className="font-mono bg-slate-200 px-2 py-1 rounded-lg">
-                      {c.gameName}
+                      {c.game.name}
                     </span>{" "}
                   </h3>
                   <p className="text-lg text-slate-600">
                     Code de la partie :{" "}
                     <span className="px-2 py-1 rounded-lg select-text">
-                      {c.gameCode}
+                      {c.game.code}
                     </span>
                   </p>
                   <p className="text-sm text-slate-600">
-                    Partie créée par {c.createdBy.username} le{" "}
-                    {c.createdAt.slice(0, 10).split("-").reverse().join("/")} à{" "}
-                    {c.createdAt.slice(11, 16)}
+                    Partie créée par {c.game.createdBy}
                   </p>
                   <p className="text-sm text-slate-600">
                     État :{" "}
                     <span
                       className={
-                        c.gameState === "WAITING_PLAYERS"
+                        c.game.state === "WAITING"
                           ? "text-yellow-600"
                           : "text-green-600"
                       }
                     >
-                      {c.gameState === "WAITING_PLAYERS"
+                      {c.game.state === "WAITING"
                         ? "En attente de joueurs"
                         : "En cours"}
                     </span>
                   </p>
                 </div>
                 <Link
-                  href={`/game/game-table?id=${c.id}`}
+                  href={`/game/game-table?id=${c.game.id}`}
                   className="bg-[#7D5B3A] text-white px-4 py-2 rounded-lg hover:scale-105 transition-transform"
                 >
                   Rejoindre
@@ -273,7 +252,7 @@ export default function Lobby() {
 
               <details className="mt-2 text-slate-500">
                 <summary className="cursor-pointer">Description</summary>
-                <p className="mt-2 text-sm">{c.description}</p>
+                <p className="mt-2 text-sm">{c.game.description}</p>
               </details>
             </article>
           ))}
