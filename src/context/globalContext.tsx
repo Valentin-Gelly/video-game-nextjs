@@ -15,6 +15,8 @@ interface GlobalContextType {
   setToken: Dispatch<SetStateAction<string | null>>;
   idUser: string | null;
   setIdUser: Dispatch<SetStateAction<string | null>>;
+  userName: string | null;
+  setUserName: Dispatch<SetStateAction<string | null>>;
 }
 
 export const GlobalContext = createContext<GlobalContextType | null>(null);
@@ -29,29 +31,34 @@ export const GlobalProvider = ({ children }: GlobalProviderProps) => {
   const [init, setInit] = useState<boolean>(true);
   const [token, setToken] = useState<string | null>(null);
   const [idUser, setIdUser] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
     console.log("GlobalContext init:", init);
     const storedToken = sessionStorage.getItem("token");
     const storedIdUser = sessionStorage.getItem("idUser");
+    const storedUserName = sessionStorage.getItem("userName");
     if (storedToken) setToken(storedToken);
     if (storedIdUser) setIdUser(storedIdUser);
+    if (storedUserName) setUserName(storedUserName);
     setInit(false);
   }, []);
 
   useEffect(() => {
-    if (token) {
-      console.log("GlobalContext token if:", token);
+    if (token && userName) {
       sessionStorage.setItem("token", token);
+      sessionStorage.setItem("userName", userName);
     } else if (!token) {
-      console.log("GlobalContext token else:", token);
       sessionStorage.removeItem("token");
+      sessionStorage.removeItem("userName");
       setInit(false);
     }
-  }, [router, token]);
+  }, [router, token, userName]);
 
   return (
-    <GlobalContext.Provider value={{ token, setToken, idUser, setIdUser }}>
+    <GlobalContext.Provider
+      value={{ token, setToken, idUser, setIdUser, userName, setUserName }}
+    >
       {children}
     </GlobalContext.Provider>
   );

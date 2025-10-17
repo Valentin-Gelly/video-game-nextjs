@@ -95,7 +95,7 @@ async function createGame(
     roles: roles,
     state: "WAITING",
     createdAt: new Date(),
-    createdBy: createdBy
+    createdBy: createdBy,
   };
 }
 
@@ -155,6 +155,30 @@ app.prepare().then(() => {
       }
     });
 
+    socket.on("joinGame", (data, cb) => {
+      const g = games.get(data.gameId);
+      if (!g) return cb?.({ ok: false, error: "Game not found" });
+
+      const player: Player = {
+        id: socket.id,
+        name: data.playerName || `Player-${socket.id.slice(0, 4)}`,
+        gold: 2,
+        hand: [],
+        city: [],
+        isAlive: true,
+      };
+
+      g.game.players.push(player);
+      g.gameState.players.push(player);
+      console.log("g.game.players", g.game.players);
+      socket.join(data.gameId);
+      io.to(data.gameId).emit("updatePlayers", {
+        players: g.gameState.players.map((p) => p.name),
+      });
+
+      cb?.({ ok: true, playerId: player.id });
+    });
+
     socket.on("gameList", (cb) => {
       try {
         console.log("gamelist 2", games);
@@ -167,24 +191,11 @@ app.prepare().then(() => {
       }
     });
 
-    socket.on("joinGame", ({ gameId, playerName }, cb) => {
-      const g = games.get(gameId);
-      if (!g) return cb({ ok: false, error: "Game not found" });
-
-      const player: Player = {
-        id: socket.id,
-        name: playerName || `Player-${socket.id.slice(0, 4)}`,
-        gold: 2,
-        hand: [],
-        city: [],
-        isAlive: true,
-      };
-      g.game.players.push(player);
-      g.gameState.players.push(player);
-      socket.join(`${gameId}`);
-      io.to(`${gameId}`).emit("gameState", sanitize(g.gameState));
-      cb({ ok: true, playerId: player.id });
-    });
+    socket.on("closeGame", async ({ gameId }, cb) => {
+      const deletedGame = games.delete(gameId);
+      if (!deletedGame) return cb({ ok: false, error: "Game not found" });
+      cb({ ok: true });
+    });   
 
     socket.on("startGame", async ({ gameId }, cb) => {
       const g = games.get(gameId);
@@ -316,4 +327,14 @@ function sanitize(g: GameState) {
   // éviter d'envoyer trop de data (par ex. cartes ennemies en main)
   // pour l'exemple, retourne l'état entier
   return g;
+}
+
+function getGameByCode(code: string) {
+  for (const [, value] of games) {
+    // on ignore la clé, on prend juste la valeur
+    if (value.game.code === code) {
+      return value;
+    }
+  }
+  return undefined; // si aucun match
 }

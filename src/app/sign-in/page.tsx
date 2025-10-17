@@ -8,7 +8,8 @@ import { GlobalContext } from "@/context/globalContext";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const { token, setToken, setIdUser, idUser } = useContext(GlobalContext);
+  const { token, setToken, setIdUser, idUser, userName, setUserName } =
+    useContext(GlobalContext);
   const [isLoading, setIsLoading] = useState(false);
 
   const onSubmit = async (event) => {
@@ -46,6 +47,8 @@ export default function SignUpPage() {
           timer: 1500,
         });
         setToken(res.user.token);
+        setUserName(res.user.name);
+        sessionStorage.setItem("userName", res.user.name);
         router.push("/dashboard/user");
       }
     } catch (err) {

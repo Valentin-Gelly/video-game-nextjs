@@ -20,7 +20,6 @@ export default function RoleCard({
   type?: String;
 }) {
   const { top, bottom } = backgroundColors;
-  console.log(isPlayed);
   return (
     <div
       className={

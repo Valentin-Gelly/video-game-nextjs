@@ -1,31 +1,27 @@
 "use client";
 
 import GameCard from "@/app/component/GameCard";
-import { useEffect, useState } from "react";
-import io from "socket.io-client";
+import { useEffect, useState, useContext } from "react";
 import Image from "next/image";
 import RoleCard from "@/app/component/RoleCard";
+import { useRouter, useSearchParams } from "next/navigation";
+import Swal from "sweetalert2";
+import { socket } from "@/server/socket";
+import { GlobalContext } from "@/context/globalContext";
+import { Player } from "@/generated/prisma";
 
-let socket: ReturnType<typeof io> | null = null;
-
-export default function GamePage({
-  gameId,
-  playerId,
-  name,
-  description,
-  price,
-}: {
-  gameId: string;
-  playerId: number;
-  name: string;
-  description: string;
-  price: string;
-}) {
-  const [state, setState] = useState<any>(null);
-
-  const [role, setRole] = useState<any>(null);
-  const [deckCards, setDeckCards] = useState<any>([]);
-  const [buildingCard, setBuildingCard] = useState<any>([]);
+export default function GamePage() {
+  const { userName } = useContext(GlobalContext);
+  const [players, setPlayers] = useState<string[]>([]);
+  const [isHost, setIsHost] = useState<boolean>(false);
+  const [isLobbyOpen, setIsLobbyOpen] = useState(true);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [role, setRole] = useState<any>();
+  const [deckCards, setDeckCards] = useState<any[]>([]);
+  const [buildingCard, setBuildingCard] = useState<any[]>([]);
+  const [gameId, setGameId] = useState<string>();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     setRole({
@@ -130,7 +126,43 @@ export default function GamePage({
         color: "rouge",
       },
     ]);
-  }, []); // <- empty dependency array = run once
+
+    const id = searchParams.get("id");
+    const hostFlag = searchParams.get("isHost") === "true";
+
+    if (!id) {
+      Swal.fire({
+        icon: "error",
+        title: "Impossible de trouver la partie",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      router.push("/game/lobby");
+      return;
+    }
+
+    setGameId(id);
+    setIsHost(hostFlag);
+
+    setGameId(searchParams.get("id") || "");
+    if (gameId === "") {
+      Swal.fire({
+        icon: "error",
+        title: "Impossible de trouver la partie",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      router.push("/game/lobby");
+      return;
+    }
+    console.log("gameId", gameId, "ishost", isHost);
+    setIsHost(searchParams.get("isHost") === "true");
+    // 🔹 Écoute des mises à jour
+    socket.on("updatePlayers", (playerList: Player[]) => {
+      console.log("test", playerList);
+      //setPlayers(playerList);
+    });
+  }, [gameId, isHost, router, searchParams]); // <- empty dependency array = run once
 
   // 🧠 Ce useEffect se déclenche chaque fois que deckCards change :
   useEffect(() => {
@@ -171,36 +203,121 @@ export default function GamePage({
     }
   }
 
-  /*
   useEffect(() => {
-    // connect to our socket endpoint
-    if (!socket) {
-      socket = io({ path: "/api/socket_io" });
+    if (gameId && userName) {
+      console.log("test de join game", gameId, userName);
+      socket.emit("joinGame", { gameId, playerName: userName }, (res) => {
+        if (!res.ok) {
+          console.error("Erreur joinGame:", res.error);
+          return;
+        }
+        console.log("✅ Rejoint la partie avec playerId:", res.playerId);
+      });
+
+      socket.on("gameStarted", () => {
+        setGameStarted(true);
+        setIsLobbyOpen(false);
+        console.log("🎮 Partie lancée !");
+      });
+
+      socket.on("gameState", (res) => {
+        console.log("📦 Nouvel état de jeu :", res);
+      });
     }
+  }, [gameId, userName]);
 
-    socket.emit("joinGame", gameId);
-
-    socket.on("gameStarted", (payload: any) => {
-      console.log("gameStarted", payload);
-      setState(payload);
-    });
-
-    return () => {
-      socket?.off("gameStarted");
-    };
-  }, [gameId]);
-
-  const handleStart = () => {
-    socket?.emit("startGame", {
-      gameId,
-      playerIds: [
-      ],
+  // 🔹 Fonction pour démarrer la partie (uniquement hôte)
+  const handleStartGame = () => {
+    socket.emit("startGame", { gameId }, (res: { ok: boolean }) => {
+      if (res.ok) {
+        setIsLobbyOpen(false);
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Erreur lors de la fermeture de la partie",
+          showConfirmButton: false,
+          timer: 1500,
+        });
+      }
     });
   };
-  */
+
+  const closeGame = () => {
+    socket.emit(
+      "closeGame",
+      { gameId },
+      (res: { ok: boolean; error?: string }) => {
+        if (res.ok) {
+          router.push("/game/lobby");
+          setIsLobbyOpen(false);
+          return () => {
+            socket.off("joinGame");
+            socket.off("updatePlayers");
+            socket.off("gameStarted");
+          };
+        } else {
+          if (res.error === "Game not found") {
+            router.push("/game/lobby");
+            setIsLobbyOpen(false);
+            return () => {
+              socket.off("joinGame");
+              socket.off("updatePlayers");
+              socket.off("gameStarted");
+            };
+          }
+          Swal.fire({
+            icon: "error",
+            title: "Erreur lors de la fermeture de la partie",
+            showConfirmButton: false,
+            timer: 1500,
+          });
+        }
+      }
+    );
+  };
 
   return (
     <main className="min-h-screen  bg-[#C2B280]/20 overflow-hidden">
+      {isLobbyOpen && (
+        <dialog open className="modal">
+          <div className="modal-box bg-white rounded-2xl shadow-lg border border-[#A8D8B9] text-[#4B4E6D]">
+            <h2 className="text-2xl font-bold mb-4">Lobby de la partie</h2>
+            <p className="mb-4">Joueurs connectés :</p>
+
+            <ul className="mb-4 space-y-2">
+              {players.length > 0 ? (
+                players.map((p, i) => (
+                  <li
+                    key={i}
+                    className="bg-[#C2B280]/20 rounded-lg px-4 py-2 border border-[#A8D8B9]"
+                  >
+                    {p}
+                  </li>
+                ))
+              ) : (
+                <p className="text-slate-500">En attente de joueurs...</p>
+              )}
+            </ul>
+
+            <div className="flex justify-end gap-4">
+              {isHost && (
+                <button
+                  onClick={handleStartGame}
+                  className="btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A]"
+                >
+                  Lancer la partie
+                </button>
+              )}
+              <button
+                onClick={() => closeGame()}
+                className="btn btn-ghost border border-[#A8D8B9]"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </dialog>
+      )}
       <div
         id="gameSpace"
         className="w-full h-[75vh] bg-[#C2B280]/20 flex mt-[5vh]"

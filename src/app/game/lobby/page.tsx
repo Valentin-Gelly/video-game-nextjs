@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Context, useEffect, useState, useContext } from "react";
 import Swal from "sweetalert2";
-import { socket } from "../../../server/socket";
 import { useRouter } from "next/navigation";
 import { GameState, Game } from "@/server/gameManager";
+import { io } from "socket.io-client";
+import { GlobalContext } from "@/context/globalContext";
 
+const socket = io();
 export default function Lobby() {
   const [joinCode, setJoinCode] = useState("");
   const [games, setGames] = useState(
@@ -16,6 +18,7 @@ export default function Lobby() {
   const [gameName, setGameName] = useState("");
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { userName } = useContext(GlobalContext);
 
   useEffect(() => {
     socket.emit(
@@ -35,6 +38,7 @@ export default function Lobby() {
   }, []);
 
   async function handleCreateGame() {
+    let gameId: string | undefined;
     if (!gameName.trim()) {
       Swal.fire({
         icon: "warning",
@@ -62,53 +66,20 @@ export default function Lobby() {
           title: "Partie créée 🎉",
           text: `Ta partie "${gameName}" est prête !`,
         });
-
+        gameId = res.gameId;
         const modal = document.getElementById(
           "my_modal_1"
         ) as HTMLDialogElement;
         modal.close();
-        setGameName("");
-        setDescription("");
-        router.push(`/game/game-table?id=${res.gameId}`);
+        router.push(`/game/game-table?id=${gameId}&isHost=true`);
       }
     );
   }
 
-  async function joinGame() {
-    if (!joinCode.trim()) {
-      Swal.fire({
-        icon: "warning",
-        title: "Code requis",
-        text: "Veuillez entrer le code de la partie.",
-      });
-      return;
-    }
-
+  async function joinGame(gameId?: string) {
     setIsLoading(true);
 
-    socket.emit(
-      "joinGame",
-      { gameId: joinCode, playerName: "Moi" },
-      (res: { ok: boolean; error?: string; playerId?: string }) => {
-        setIsLoading(false);
-
-        if (!res.ok) {
-          Swal.fire({
-            icon: "error",
-            title: "Erreur",
-            text: res.error || "Impossible de rejoindre la partie.",
-          });
-          return;
-        }
-
-        Swal.fire({
-          icon: "success",
-          title: "Partie rejointe 🎉",
-        });
-
-        router.push(`/game/game-table?id=${joinCode}`);
-      }
-    );
+    router.push(`/game/game-table?id=${gameId}&isHost=false`);
   }
 
   return (
@@ -244,6 +215,7 @@ export default function Lobby() {
                 </div>
                 <Link
                   href={`/game/game-table?id=${c.game.id}`}
+                  onClick={() => joinGame(c.game.id)}
                   className="bg-[#7D5B3A] text-white px-4 py-2 rounded-lg hover:scale-105 transition-transform"
                 >
                   Rejoindre
@@ -272,7 +244,9 @@ export default function Lobby() {
           />
           <button
             className="w-full bg-[#4B4E6D] text-white py-2 rounded-lg hover:scale-105 transition-transform"
-            onClick={joinGame}
+            onClick={() => {
+              joinGame();
+            }}
           >
             Rejoindre
           </button>
