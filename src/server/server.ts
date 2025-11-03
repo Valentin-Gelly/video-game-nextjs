@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import next from "next";
 import { Server } from "socket.io";
 import { v4 as uuidv4 } from "uuid";
+import GameList from "@/app/dashboard/page";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
@@ -122,6 +123,10 @@ app.prepare().then(() => {
   io.on("connection", (socket) => {
     console.log("socket connected 2", socket.id);
 
+    socket.on("disconnect", () => {
+      console.log("socket disconnected", socket.id);
+    });
+
     socket.on("createGame", async (data, cb) => {
       try {
         const g = await createGame(
@@ -144,9 +149,10 @@ app.prepare().then(() => {
         games.set(g.id, { game: g, gameState });
 
         // 🔹 Création de la room
+        console.log("data.gameId", g.id);
         socket.join(g.id);
 
-        console.log(`🎮 Partie créée : ${g.id}`);
+        socket.emit("updateGameList", games);
 
         cb({ ok: true, gameId: g.id });
       } catch (err) {
@@ -166,17 +172,30 @@ app.prepare().then(() => {
         hand: [],
         city: [],
         isAlive: true,
+        isCreator: data.isCreator || false,
       };
 
       g.game.players.push(player);
       g.gameState.players.push(player);
-      console.log("g.game.players", g.game.players);
+      console.log("data.gameId", data.gameId);
       socket.join(data.gameId);
       io.to(data.gameId).emit("updatePlayers", {
-        players: g.gameState.players.map((p) => p.name),
+        players: g.game.players
       });
 
       cb?.({ ok: true, playerId: player.id });
+    });
+
+    socket.on('leaveGame', ({ gameId, playerId }, cb) => {
+      console.log("leaving game", gameId, playerId);
+      const g = games.get(gameId);
+      if (!g) return cb({ ok: false, error: "Game not found" });
+      g.game.players = g.game.players.filter((p) => p.id !== playerId);
+      g.gameState.players = g.gameState.players.filter((p) => p.id !== playerId);
+      io.to(gameId).emit("updatePlayers", {
+        players: g.game.players
+      });
+      cb({ ok: true });
     });
 
     socket.on("gameList", (cb) => {
@@ -194,11 +213,13 @@ app.prepare().then(() => {
     socket.on("closeGame", async ({ gameId }, cb) => {
       const deletedGame = games.delete(gameId);
       if (!deletedGame) return cb({ ok: false, error: "Game not found" });
+      io.to(gameId).emit("gameClosed");
       cb({ ok: true });
     });   
 
     socket.on("startGame", async ({ gameId }, cb) => {
       const g = games.get(gameId);
+      console.log("Starting game", gameId, g);
       if (!g) return cb({ ok: false, error: "Game not found" });
       for (const p of g.gameState.players) {
         p.hand = g.gameState.deck.splice(0, 4);
@@ -218,6 +239,8 @@ app.prepare().then(() => {
       g.gameState.currentPlayerId = g.gameState.players.length
         ? g.gameState.players[0].id
         : undefined;
+      g.game.state = "IN_PROGRESS";
+      io.to(`${gameId}`).emit("gameStarted");
       io.to(`${gameId}`).emit("gameState", sanitize(g.gameState));
       cb({ ok: true });
     });

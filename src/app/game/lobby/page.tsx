@@ -32,8 +32,22 @@ export default function Lobby() {
       }
     );
 
+    socket.on("updatePlayers", (data) => {
+      socket.emit(
+        "gameList",
+        (res: {
+          ok: boolean;
+          gameList: { game: Game; gameState: GameState }[];
+        }) => {
+          setGames(res.gameList);
+        }
+      );
+    });
+
     return () => {
       socket.off("gameState");
+      socket.off("updatePlayers");
+  
     };
   }, []);
 
@@ -145,9 +159,8 @@ export default function Lobby() {
                 <button
                   type="button"
                   disabled={isLoading}
-                  className={`btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] transition-all ${
-                    isLoading ? "opacity-70 cursor-not-allowed" : ""
-                  }`}
+                  className={`btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] transition-all ${isLoading ? "opacity-70 cursor-not-allowed" : ""
+                    }`}
                   onClick={handleCreateGame}
                 >
                   {isLoading ? (
@@ -213,13 +226,15 @@ export default function Lobby() {
                     </span>
                   </p>
                 </div>
+                {c.game.state === "WAITING" && (
+                        
                 <Link
                   href={`/game/game-table?id=${c.game.id}`}
                   onClick={() => joinGame(c.game.id)}
                   className="bg-[#7D5B3A] text-white px-4 py-2 rounded-lg hover:scale-105 transition-transform"
                 >
                   Rejoindre
-                </Link>
+                </Link>)}
               </div>
 
               <details className="mt-2 text-slate-500">

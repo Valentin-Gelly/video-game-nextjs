@@ -10,6 +10,7 @@ export interface Player {
   city: Building[];
   role?: string;
   isAlive?: boolean;
+  isCreator?: boolean;
 }
 export interface GameState {
   id: string;

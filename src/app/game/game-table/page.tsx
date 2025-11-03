@@ -11,8 +11,8 @@ import { GlobalContext } from "@/context/globalContext";
 import { Player } from "@/generated/prisma";
 
 export default function GamePage() {
-  const { userName } = useContext(GlobalContext);
-  const [players, setPlayers] = useState<string[]>([]);
+  const { userName, idUser } = useContext(GlobalContext);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [isHost, setIsHost] = useState<boolean>(false);
   const [isLobbyOpen, setIsLobbyOpen] = useState(true);
   const [gameStarted, setGameStarted] = useState(false);
@@ -158,11 +158,28 @@ export default function GamePage() {
     console.log("gameId", gameId, "ishost", isHost);
     setIsHost(searchParams.get("isHost") === "true");
     // 🔹 Écoute des mises à jour
-    socket.on("updatePlayers", (playerList: Player[]) => {
-      console.log("test", playerList);
-      //setPlayers(playerList);
-    });
   }, [gameId, isHost, router, searchParams]); // <- empty dependency array = run once
+
+
+  socket.on("updatePlayers", (res) => {
+    console.log("Mise à jour des joueurs :", res.players);
+    setPlayers(res.players);
+  });
+
+  socket.on("gameClosed", () => {
+    Swal.fire({
+      icon: "info",
+      title: "La partie a été fermée par l'hôte",
+      showConfirmButton: false,
+      timer: 1500,
+    });
+    router.push("/game/lobby");
+  });
+
+  socket.on("updateGameList", (data) => {
+    console.log("🔄 Liste des parties mise à jour :", data)
+  });
+
 
   // 🧠 Ce useEffect se déclenche chaque fois que deckCards change :
   useEffect(() => {
@@ -206,7 +223,7 @@ export default function GamePage() {
   useEffect(() => {
     if (gameId && userName) {
       console.log("test de join game", gameId, userName);
-      socket.emit("joinGame", { gameId, playerName: userName }, (res) => {
+      socket.emit("joinGame", { gameId, playerName: userName, isHost }, (res) => {
         if (!res.ok) {
           console.error("Erreur joinGame:", res.error);
           return;
@@ -240,6 +257,41 @@ export default function GamePage() {
         });
       }
     });
+  };
+
+  const leaveGame = (playerId: string) => {
+    console.log("leaving game", gameId);
+    socket.emit(
+      "leaveGame",
+      { gameId, playerId: socket.id },
+      (res: { ok: boolean; error?: string }) => {
+        if (res.ok) {
+          router.push("/game/lobby");
+          setIsLobbyOpen(false);
+          return () => {
+            socket.off("joinGame");
+            socket.off("updatePlayers");
+            socket.off("gameStarted");
+          }
+        } else {
+          if (res.error === "Game not found") {
+            router.push("/game/lobby");
+            setIsLobbyOpen(false);
+            return () => {
+              socket.off("joinGame");
+              socket.off("updatePlayers");
+              socket.off("gameStarted");
+            };
+          }
+          Swal.fire({
+            icon: "error",
+            title: "Erreur lors de la fermeture de la partie",
+            showConfirmButton: false,
+            timer: 1500,
+          });
+        }
+      }
+    );
   };
 
   const closeGame = () => {
@@ -291,7 +343,7 @@ export default function GamePage() {
                     key={i}
                     className="bg-[#C2B280]/20 rounded-lg px-4 py-2 border border-[#A8D8B9]"
                   >
-                    {p}
+                    {p.name}
                   </li>
                 ))
               ) : (
@@ -308,12 +360,21 @@ export default function GamePage() {
                   Lancer la partie
                 </button>
               )}
+              {isHost && (
               <button
                 onClick={() => closeGame()}
                 className="btn btn-ghost border border-[#A8D8B9]"
               >
                 Fermer
-              </button>
+              </button>)}
+              {!isHost && (
+                <button
+                  onClick={() => leaveGame(idUser!)}
+                  className="btn btn-ghost border border-[#A8D8B9]"
+                >
+                  Quitter
+                </button>
+              )}
             </div>
           </div>
         </dialog>
