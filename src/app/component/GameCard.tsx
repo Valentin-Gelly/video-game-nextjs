@@ -37,6 +37,15 @@ export default function GameCard({
     const modal = document.getElementById("my_modal_" + id) as HTMLDialogElement | null;
     if (modal) modal.close();
 
+    if (!isPlayable) {
+      Swal.fire({
+        icon: "error",
+        title: "Action impossible",
+        text: "Ce n'est pas votre tour de jouer.",
+      });
+      return;
+    }
+
     if (!canBeBuilded) {
       Swal.fire({
         icon: "error",

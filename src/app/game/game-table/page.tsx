@@ -17,7 +17,6 @@ export default function GamePage() {
   const [isHost, setIsHost] = useState<boolean>(false);
   const [isLobbyOpen, setIsLobbyOpen] = useState(true);
   const [gameStarted, setGameStarted] = useState(false);
-  const [role, setRole] = useState<any>();
   const [deckCards, setDeckCards] = useState<any[]>([]);
   const [buildingCard, setBuildingCard] = useState<any[]>([]);
   const [gameState, setGameState] = useState<GameState>();
@@ -31,7 +30,6 @@ export default function GamePage() {
   useEffect(() => {
 
     const id = searchParams.get("id");
-    const hostFlag = searchParams.get("isHost") === "true";
 
     if (!id) {
       Swal.fire({
@@ -45,9 +43,6 @@ export default function GamePage() {
     }
 
     setGameId(id);
-    setIsHost(hostFlag);
-
-    setGameId(searchParams.get("id") || "");
     if (gameId === "") {
       Swal.fire({
         icon: "error",
@@ -61,8 +56,31 @@ export default function GamePage() {
     console.log("gameId", gameId, "ishost", isHost);
     setIsHost(searchParams.get("isHost") === "true");
     // 🔹 Écoute des mises à jour
-  }, [gameId, isHost, router, searchParams]); // <- empty dependency array = run once
+    if (gameId && userName && !joinedRef.current) {
+      joinedRef.current = true;
+      socket.emit("joinGame", { gameId, playerName: userName, isHost }, (res) => {
+        if (!res.ok) {
+          console.error("Erreur joinGame:", res.error);
+          return;
+        }
 
+        if (res.reconnect) {
+          setGameId(gameId);
+          setGameStarted(true);
+          setIsLobbyOpen(false);
+          setGameState(res.gameState);
+          const role = res.gameState?.players.find((p: any) => p.id === socket.id)?.role;
+          if (role) {
+            setSelectedRole(role);
+          }
+        }
+      });
+    } else if (joinedRef.current) {
+      setGameId(gameId);
+      setGameStarted(true);
+      setIsLobbyOpen(false);
+    }
+  }, [gameId, isHost, router, searchParams]); 
 
   socket.on("updatePlayers", (res) => {
     console.log("Mise à jour des joueurs :", res.players);
@@ -84,6 +102,7 @@ export default function GamePage() {
   });
 
   socket.on("endRoleSelection", (res) => {
+    console.log("Sélection des rôles terminée :", res);
     handlePlayTurn();
   });
 
@@ -91,12 +110,6 @@ export default function GamePage() {
     console.log("Log du serveur :", message);
     logs.current.push(message);
   });
-
-
-  // 🧠 Ce useEffect se déclenche chaque fois que deckCards change :
-  useEffect(() => {
-    console.log("deckCards mis à jour :", deckCards);
-  }, [deckCards]);
 
   function getColorGradient(colorName: string | undefined) {
     if (!colorName) {
@@ -107,7 +120,7 @@ export default function GamePage() {
         return { top: "#4B6CB7", bottom: "#182848" };
       case "jaune":
         return { top: "#FFEE58", bottom: "#F9A825" };
-      case "verte":
+      case "vert":
         return { top: "#56ab2f", bottom: "#a8e063" };
       case "violet":
         return { top: "#8E2DE2", bottom: "#4A00E0" };
@@ -135,47 +148,14 @@ export default function GamePage() {
     }
   }
 
-  useEffect(() => {
-    if (gameId && userName && !joinedRef.current) {
-      joinedRef.current = true;
-      socket.emit("joinGame", { gameId, playerName: userName, isHost }, (res) => {
-        if (!res.ok) {
-          console.error("Erreur joinGame:", res.error);
-          return;
-        }
+  socket.on("gameStarted", () => {
+    setGameStarted(true);
+    setIsLobbyOpen(false);
+  });
 
-        if (res.reconnect) {
-          console.log("Reconnexion au jeu réussie.");
-          setGameId(gameId);
-          setGameStarted(true);
-          setIsLobbyOpen(false);
-          setGameState(res.gameState);
-          console.log("État du jeu restauré :", res.gameState, socket.id);
-          if (res.gameState?.players.find((p: any) => p.id === socket.id)?.role) {
-            setSelectedRole(
-              res.gameState.players.find((p: any) => p.id === socket.id)?.role
-            );
-          }
-        }
-
-      });
-
-      socket.on("gameStarted", () => {
-        setGameStarted(true);
-        setIsLobbyOpen(false);
-      });
-
-      socket.on("gameState", (res) => {
-        setGameState(res);
-      });
-    } else if (joinedRef.current) {
-      setGameId(gameId);
-      setGameStarted(true);
-      setIsLobbyOpen(false);
-
-    }
-
-  }, [gameId, userName, isHost]);
+  socket.on("gameState", (res) => {
+    setGameState(res);
+  });
 
   // 🔹 Fonction pour démarrer la partie (uniquement hôte)
   const handleStartGame = () => {
@@ -196,14 +176,18 @@ export default function GamePage() {
   const handleChooseRole = (role: Role) => {
     socket.emit("chooseRole", { gameId, role }, (res: any) => {
       if (!res.ok) Swal.fire("Erreur", res.error, "error");
-      else setSelectedRole(role);
+      else {
+        console.log("Rôle choisi :", role);
+        setSelectedRole(role)
+      };
     });
   };
 
   const handlePlayCard = (card: Building) => {
+    console.log("Jouer la carte :", card);
     const player = gameState?.players.find((p: any) => p.id === idUser);
     if (!player) return;
-    socket.emit("playCard", { gameId, idUser, card }, (res: any) => {
+    socket.emit("playerAction", { gameId, idUser, action: 'build', cardToKeep: card }, (res: any) => {
       if (!res.ok) Swal.fire("Erreur", res.error, "error");
     });
   };
@@ -216,14 +200,123 @@ export default function GamePage() {
   };
 
   const handlePlayTurn = () => {
+    let role = gameState?.players?.find(p => p.id === socket.id)?.role?.name;
+    console.log("handlePlayTurn for role:", role);
+    if (gameState?.currentPlayerId !== socket.id && role) return;
     Swal.fire({
       icon: "info",
       title: "C'est à votre tour de jouer !",
       showConfirmButton: false,
       timer: 1500,
     });
+    console.log("Rôle sélectionné pour l'action spéciale :", role);
+    if (role === "Assassin") {
+      Swal.fire({
+        title: "Choisissez un rôle à assassiner",
+        input: "select",
+        inputOptions: gameState?.rolesPool.reduce((options: any, r: Role) => {
+          options[r.name] = r.name;
+          return options;
+        }, {}) || {},
+        inputPlaceholder: "Sélectionnez un rôle",
+        showCancelButton: true,
+        inputValidator: (value) => {
+          return new Promise((resolve) => {
+            if (value) {
+              resolve("");
+              socket.emit("playerAction", { gameId, playerId: socket.id, roleSpecial: 'assassinate', targetRole: value }, (res: any) => {
+                if (!res.ok) Swal.fire("Erreur", res.error, "error");
+              });
+            } else {
+              resolve("Vous devez choisir un rôle à assassiner.");
+            }
+          });
+        }
+      });
+    } else if (role === "Magicien") {
+      Swal.fire({
+        title: "Choisissez une action spéciale",
+        input: "select",
+        inputOptions: {
+          "ÉchangerMain": "Échanger votre main avec un autre joueur",
+          "PrendreCartes": "Prendre 2 cartes de la pioche"
+        },
+        inputPlaceholder: "Sélectionnez une action",
+        showCancelButton: true,
+        inputValidator: (value) => {
+          return new Promise((resolve) => {
+            if (value) {
+              if (value === "ÉchangerMain") {
+                Swal.fire({
+                  title: "Choisissez un joueur avec qui échanger votre main",
+                  input: "select",
+                  inputOptions: gameState?.players.reduce((options: any, p) => {
+                    if (p.id !== socket.id) options[p.id] = p.name;
+                    return options;
+                  }, {}) || {},
+                  inputPlaceholder: "Sélectionnez un joueur",
+                  showCancelButton: false,
+                  inputValidator: (playerValue) => {
+                    return new Promise((resolve) => {
+                      resolve("");
+                      socket.emit("playerAction", { gameId, playerId: socket.id, roleSpecial: 'swpaHand', playerTargeted: playerValue }, (res: any) => {
+                        if (!res.ok) Swal.fire("Erreur", res.error, "error");
+                      });
+
+                    });
+                  }
+                });
+              } else if (value === "PrendreCartes") {
+                socket.emit("playerAction", { gameId, playerId: socket.id, roleSpecial: 'swapDeck' }, (res: any) => {
+                  if (!res.ok) Swal.fire("Erreur", res.error, "error");
+                });
+              }
+              resolve("");
+            } else {
+              resolve("Vous devez choisir une action spéciale.");
+            }
+          });
+        }
+      });
+    }
+    else if (role === "Voleur") {
+      Swal.fire({
+        title: "Choisissez un rôle à voler",
+        input: "select",
+        inputOptions: gameState?.rolesPool.reduce((options: any, r: Role) => {
+          options[r.name] = r.name;
+          return options;
+        }, {}) || {},
+        inputPlaceholder: "Sélectionnez un rôle",
+        showCancelButton: true,
+        inputValidator: (value) => {
+          return new Promise((resolve) => {
+            if (value) {
+              resolve("");
+              socket.emit("playerAction", { gameId, playerId: socket.id, roleSpecial: 'Voleur', targetRole: value }, (res: any) => {
+                if (!res.ok) Swal.fire("Erreur", res.error, "error");
+              });
+            } else {
+              resolve("Vous devez choisir un rôle à voler.");
+            }
+          });
+        }
+      });
+    }
+    else if (role === "Marchand") {
+      socket.emit("playerAction", { gameId, playerId: socket.id, action: 'roleSpecial', actionDetail: 'Marchand' }, (res: any) => {
+        if (!res.ok) Swal.fire("Erreur", res.error, "error");
+      });
+    } else if (role === "Architecte") {
+      socket.emit("playerAction", { gameId, playerId: socket.id, action: 'roleSpecial', actionDetail: 'Architecte' }, (res: any) => {
+        if (!res.ok) Swal.fire("Erreur", res.error, "error");
+      });
+    } else if (role === "Roi") {
+      socket.emit("playerAction", { gameId, playerId: socket.id, action: 'roleSpecial', actionDetail: 'Roi' }, (res: any) => {
+        if (!res.ok) Swal.fire("Erreur", res.error, "error");
+      });
+    }
   };
-  
 
   const leaveGame = (playerId: string) => {
     socket.emit(
@@ -346,7 +439,7 @@ export default function GamePage() {
         </dialog>
       )}
       {
-        gameState?.gameStep === "roleSelection" && !selectedRole && gameState?.currentPlayerId ==socket.id && (
+        gameState?.gameStep === "roleSelection" && !selectedRole && gameState?.currentPlayerId == socket.id && (
           <dialog open className="modal">
             <div className="modal-box bg-white rounded-2xl shadow-lg border border-[#A8D8B9] text-[#4B4E6D] w-1/2 max-w-5xl">
               <h2 className="text-2xl font-bold mb-4">Choisissez votre rôle</h2>
@@ -402,10 +495,10 @@ export default function GamePage() {
                             canBeBuilded={false}
                             isCondotiere={p.role?.name === "Condottiere"}
                             onDestroyHandler={() => {
-                            socket.emit("destroyBuilding", { gameId, playerId: socket.id, card }, (res: any) => {
-                              if (!res.ok) Swal.fire("Erreur", res.error, "error");
-                            });
-                          }}
+                              socket.emit("destroyBuilding", { gameId, playerId: socket.id, card }, (res: any) => {
+                                if (!res.ok) Swal.fire("Erreur", res.error, "error");
+                              });
+                            }}
                           />
                         ))}
                       </div>
@@ -464,8 +557,8 @@ export default function GamePage() {
                           backgroundColors={getColorGradient(card.color)}
                           isPlayed={true}
                           type={getBuildingRole(card.color)}
-                          isPlayable={false}
-                          canBeBuilded={false}
+                          isPlayable={true}
+                          canBeBuilded={true}
                           isCondotiere={gameState?.players?.find(p => p.id === socket.id)?.role?.name === "Condottiere"}
                           onDestroyHandler={() => {
                             socket.emit("destroyBuilding", { gameId, playerId: socket.id, card }, (res: any) => {
@@ -554,8 +647,8 @@ export default function GamePage() {
                           backgroundColors={getColorGradient(card.color)}
                           isPlayed={false}
                           type={getBuildingRole(card.color)}
-                          isPlayable={true}
-                          canBeBuilded={card.cost <= gameState?.players?.find(p => p.id === socket.id)?.gold! && gameState?.currentPlayerId === socket.id }
+                          isPlayable={gameState?.currentPlayerId === socket.id}
+                          canBeBuilded={card.cost <= gameState?.players?.find(p => p.id === socket.id)?.gold!}
                           handleBuildCard={() => handlePlayCard(card)}
                           onDestroyHandler={() => {
                             socket.emit("playerAction", { gameId, playerId: socket.id, roleSpecial: 'roleSpecial', role: 'Condotiere' }, (res: any) => {
@@ -621,7 +714,7 @@ export default function GamePage() {
                   )}
                 </div>
               </div>
-              
+
             </div>
           </>
         )}

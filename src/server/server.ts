@@ -4,7 +4,6 @@ import { createServer } from "node:http";
 import next from "next";
 import { Server } from "socket.io";
 import { v4 as uuidv4 } from "uuid";
-import GameList from "@/app/dashboard/page";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
@@ -102,7 +101,7 @@ const ROLES: Role[] = [
     order: 6,
     description:
       "Le Marchand perçoit d'office 1 pièce d'or, en plus de sa perception du tour. Chaque quartier « commerçant » lui rapporte 1 pièce d'or.",
-    color: "Vert",
+    color: "vert",
   },
   {
     id: 7,
@@ -188,7 +187,6 @@ app.prepare().then(() => {
   const httpServer = createServer(handler);
   const io = new Server(httpServer);
   io.on("connection", (socket) => {
-    console.log("socket connected 2", socket.id);
 
     socket.on("disconnect", () => {
       console.log("socket disconnected", socket.id);
@@ -320,7 +318,7 @@ app.prepare().then(() => {
       g.gameState.currentPlayerId = g.gameState.players[0]?.id;
       g.game.state = "IN_PROGRESS";
       io.to(`${gameId}`).emit("gameStarted");
-      io.to(`${gameId}`).emit("gameState", sanitize(g.gameState));
+      io.to(`${gameId}`).emit("gameState", g.gameState);
       cb({ ok: true });
     });
 
@@ -347,18 +345,30 @@ app.prepare().then(() => {
       if (remainingPlayers.length > 0) {
         g.gameState.currentPlayerId = remainingPlayers[0].id;
       } else {
-
         g.gameState.phase = "playerTurn";
 
-        const firstRole = ROLES.sort((a, b) => a.order - b.order)[0].name;
-        const firstPlayer = g.gameState.players.find(p => p.role?.name === firstRole);
-        g.gameState.currentPlayerId = firstPlayer?.id;
-        io.to(gameId).emit("endRoleSelection", sanitize(g.gameState));
-      }
-      console.log("Chosen role:", role.name, "for player:", player.name);
-      console.log(g.gameState);
-      io.to(gameId).emit("gameState", sanitize(g.gameState));
+        // 🔹 Rôles ordonnés par ordre croissant
+        const orderedRoles = ROLES.sort((a, b) => a.order - b.order);
 
+        // 🔹 Cherche le premier joueur dont le rôle correspond à un rôle valide
+        let firstPlayer: any = null;
+        for (const role of orderedRoles) {
+          const candidate = g.gameState.players.find(p => p.role?.name === role.name);
+          if (candidate) {
+            firstPlayer = candidate;
+            break;
+          }
+        }
+
+        g.gameState.currentPlayerId = firstPlayer.id;
+        io.to(gameId).emit("log", `${firstPlayer.name} commence le tour avec le rôle ${firstPlayer.role.name} !`)
+
+        io.to(gameId).emit("endRoleSelection", g.gameState);
+        io.to(gameId).emit("gameState", g.gameState);
+        io.to(gameId).emit("log", `Tous les joueurs ont choisi leurs rôles !`);
+        return cb({ ok: true, role, message: "All roles chosen" });
+      }
+      io.to(gameId).emit("gameState", g.gameState);
       cb({ ok: true, role });
     });
 
@@ -374,7 +384,7 @@ app.prepare().then(() => {
       if (cardIndex === -1) return cb({ ok: false, error: "Card not in hand" });
       const card = p.hand.splice(cardIndex, 1)[0];
       p.city.push(card);
-      io.to(`${gameId}`).emit("gameState", sanitize(g.gameState));
+      io.to(`${gameId}`).emit("gameState", g.gameState);
       cb({ ok: true });
     });
 
@@ -389,9 +399,7 @@ app.prepare().then(() => {
         return cb({ ok: false, error: "Not your turn" });
 
       const role = player.role;
-      console.log(`🎭 ${player.name} (${role}) commence son tour`);
 
-      // 🔹 Effets passifs immédiats
       switch (role?.name) {
         case "Marchand":
           player.gold += 1;
@@ -405,12 +413,11 @@ app.prepare().then(() => {
           break;
       }
 
-      g.gameState.phase = "turn_action";
-      io.to(gameId).emit("gameState", sanitize(g.gameState));
+      io.to(gameId).emit("gameState", g.gameState);
       cb({ ok: true, message: `Tour de ${player.name}` });
     });
 
-    socket.on("playerAction", ({ gameId, playerId, action, actionDetail = '', cardToKeep }, cb) => {
+    socket.on("playerAction", ({ gameId, playerId, action, actionDetail = '', cardToKeep, playerTargeted, cardToExchange }, cb) => {
       const g = games.get(gameId);
       if (!g) return cb({ ok: false, error: "Game not found" });
       const player = g.gameState.players.find((p) => p.id === playerId);
@@ -418,10 +425,12 @@ app.prepare().then(() => {
       if (g.gameState.currentPlayerId !== playerId)
         return cb({ ok: false, error: "Not your turn" });
 
+      console.log(`🧩 Action de ${player.name}: ${action} ${actionDetail} ${cardToKeep}`);
+
       switch (action) {
         case "takeGold":
           player.gold += 2;
-          io.to(gameId).emit("gameState", sanitize(g.gameState));
+          io.to(gameId).emit("gameState", g.gameState);
           break;
 
         case "drawCards":
@@ -435,7 +444,7 @@ app.prepare().then(() => {
           if (!kept) return cb({ ok: false, error: "Card to keep not found" });
           player.hand.push(kept);
           g.gameState.discard.push(...drawn.filter((c) => c.id !== kept?.id));
-          io.to(gameId).emit("gameState", sanitize(g.gameState));
+          io.to(gameId).emit("gameState", g.gameState);
           break;
 
         case "build":
@@ -448,7 +457,7 @@ app.prepare().then(() => {
           player.gold -= card.cost;
           player.city.push(card);
           player.hand = player.hand.filter((c) => c.id !== card.id);
-          io.to(gameId).emit("gameState", sanitize(g.gameState));
+          io.to(gameId).emit("gameState", g.gameState);
           break;
 
         case "roleSpecial":
@@ -475,28 +484,29 @@ app.prepare().then(() => {
               break;
             }
 
-            case "Magicien": {
-              const { targetPlayerId, exchangeMode, cardsToExchange } = cb || {};
-              if (exchangeMode === "swapHands" && targetPlayerId) {
-                const target = g.gameState.players.find(p => p.id === targetPlayerId);
+            case "swpaHand": {
+              if (playerTargeted) {
+                const target = g.gameState.players.find(p => p.id === playerTargeted);
                 if (!target) return cb({ ok: false, error: "Target not found" });
                 const temp = player.hand;
                 player.hand = target.hand;
                 target.hand = temp;
                 io.to(gameId).emit("log", `${player.name} a échangé sa main avec ${target.name}`);
-              } else if (exchangeMode === "swapDeck" && Array.isArray(cardsToExchange)) {
-                // Échanger certaines cartes contre la pioche
-                const newCards = g.gameState.deck.splice(0, cardsToExchange.length);
-                cardsToExchange.forEach((cid: string) => {
-                  const idx = player.hand.findIndex((c) => c.id === cid);
-                  if (idx >= 0) {
-                    g.gameState.discard.push(player.hand[idx]);
-                    player.hand.splice(idx, 1);
-                  }
-                });
-                player.hand.push(...newCards);
-                io.to(gameId).emit("log", `${player.name} a échangé des cartes avec la pioche`);
               }
+              break;
+            }
+            case  "swapDeck": {
+              // Échanger certaines cartes contre la pioche
+              const newCards = g.gameState.deck.splice(0, cardToExchange.length);
+              cardToExchange.forEach((cid: string) => {
+                const idx = player.hand.findIndex((c) => c.id === cid);
+                if (idx >= 0) {
+                  g.gameState.discard.push(player.hand[idx]);
+                  player.hand.splice(idx, 1);
+                }
+              });
+              player.hand.push(...newCards);
+              io.to(gameId).emit("log", `${player.name} a échangé des cartes avec la pioche`);
               break;
             }
 
@@ -518,7 +528,7 @@ app.prepare().then(() => {
 
             case "Marchand": {
               player.gold += 1; // gain automatique
-              const bonus = player.city.filter(c => c.color === "Vert").length;
+              const bonus = player.city.filter(c => c.color === "vert").length;
               player.gold += bonus;
               io.to(gameId).emit("log", `${player.name} reçoit ${bonus + 1} or grâce à ses commerces`);
               break;
@@ -558,16 +568,12 @@ app.prepare().then(() => {
 
             default:
               return cb({ ok: false, error: "Unknown role special" });
-          }
-          break;
-
-          break;
-
+        }
         default:
           return cb({ ok: false, error: "Unknown action" });
       }
 
-      io.to(gameId).emit("gameState", sanitize(g.gameState));
+      io.to(gameId).emit("gameState", g.gameState);
       cb({ ok: true });
     });
 
@@ -601,12 +607,12 @@ app.prepare().then(() => {
 
       if (!nextPlayer) {
         g.gameState.phase = "endRound";
-        io.to(gameId).emit("roundEnded", sanitize(g.gameState));
+        io.to(gameId).emit("roundEnded", g.gameState);
         return cb({ ok: true, message: "Round ended" });
       }
 
       g.gameState.currentPlayerId = nextPlayer.id;
-      io.to(gameId).emit("gameState", sanitize(g.gameState));
+      io.to(gameId).emit("gameState", g.gameState);
       cb({ ok: true });
     });
 
@@ -614,7 +620,7 @@ app.prepare().then(() => {
     socket.on("requestState", ({ gameId }, cb) => {
       const g = games.get(gameId);
       if (!g) return cb({ ok: false, error: "Game not found" });
-      cb({ ok: true, state: sanitize(g.gameState) });
+      cb({ ok: true, state: g.gameState });
     });
 
     socket.on("disconnect", () => {
