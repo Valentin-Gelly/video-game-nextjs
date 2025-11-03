@@ -22,21 +22,13 @@ export default function Header() {
         (pathname === "/game/game-table" ? "h-4" : "h-[15vh]")
       }
     >
-      {pathname === "/game/game-table" ? null : (
-        <Link href="/">
-          <Image
-            src="/logo.png"
-            alt="Cita de l'or"
-            width={350}
-            height={40}
-            priority
-            className="object-contain "
-          />
-        </Link>
-      )}
 
-      {token ? (
-        <div className="flex items-center space-x-4">
+      {!token ? (
+        <Link href="/sign-in">Connexion</Link>
+      ) : null}
+
+      {token && pathname === "/game/game-table" ? (
+        <div className="flex flex-end items-center space-x-4">
           <Link href="/dashboard/user">Mon profil</Link>
           <button
             onClick={() => {
@@ -51,7 +43,7 @@ export default function Header() {
             className={
               " bg-red-500 text-white rounded-lg hover:bg-red-600 transition" +
                 pathname ==
-              "/game/game-table"
+                "/game/game-table"
                 ? " px-2 py-1 text-sm"
                 : " px-4 py-2"
             }
@@ -59,9 +51,46 @@ export default function Header() {
             Déconnexion
           </button>
         </div>
-      ) : (
-        <Link href="/sign-in">Connexion</Link>
-      )}
+      ) : null}
+
+      {token && pathname !== "/game/game-table" ? (
+        <>
+          <Link href="/">
+            <Image
+              src="/logo.png"
+              alt="Cita de l'or"
+              width={350}
+              height={40}
+              priority
+              className="object-contain "
+            />
+          </Link>
+          <div className="flex flex-end items-center space-x-4">
+            <Link href="/dashboard/user">Mon profil</Link>
+            <button
+              onClick={() => {
+                setToken(null);
+                setIdUser(null);
+                localStorage.removeItem("token");
+                localStorage.removeItem("idUser");
+                sessionStorage.removeItem("token");
+                sessionStorage.removeItem("idUser");
+                router.push("/");
+              }}
+              className={
+                " bg-red-500 text-white rounded-lg hover:bg-red-600 transition" +
+                  pathname ==
+                  "/game/game-table"
+                  ? " px-2 py-1 text-sm"
+                  : " px-4 py-2"
+              }
+            >
+              Déconnexion
+            </button>
+          </div>
+        </>
+      ) : null }
+
     </header>
   );
 }

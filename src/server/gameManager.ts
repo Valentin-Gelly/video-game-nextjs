@@ -8,7 +8,7 @@ export interface Player {
   gold: number;
   hand: Building[];
   city: Building[];
-  role?: string;
+  role?: Role;
   isAlive?: boolean;
   isCreator?: boolean;
 }
@@ -19,8 +19,11 @@ export interface GameState {
   discard: Building[];
   phase: string;
   currentPlayerId?: PlayerId;
-  currentRole?: string;
+  currentRole?: Role;
   rolesOrder?: string[];
+  rolesPool: Role[];
+  gameStep?: "roleSelection" | "playerTurn" = "roleSelection";
+  crownHolderId?: PlayerId;
 }
 
 export interface Role {

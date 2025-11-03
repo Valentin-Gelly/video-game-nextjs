@@ -1,14 +1,15 @@
 "use client";
 
 import GameCard from "@/app/component/GameCard";
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useRef } from "react";
 import Image from "next/image";
 import RoleCard from "@/app/component/RoleCard";
 import { useRouter, useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
 import { socket } from "@/server/socket";
 import { GlobalContext } from "@/context/globalContext";
-import { Player } from "@/generated/prisma";
+import GameDetail from "@/app/dashboard/game/[id]/page";
+import { GameState, Role, Building } from "@/server/gameManager";
 
 export default function GamePage() {
   const { userName, idUser } = useContext(GlobalContext);
@@ -19,113 +20,15 @@ export default function GamePage() {
   const [role, setRole] = useState<any>();
   const [deckCards, setDeckCards] = useState<any[]>([]);
   const [buildingCard, setBuildingCard] = useState<any[]>([]);
+  const [gameState, setGameState] = useState<GameState>();
   const [gameId, setGameId] = useState<string>();
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const joinedRef = useRef(false);
+  const logs = useRef<string[]>([]);
 
   useEffect(() => {
-    setRole({
-      description:
-        "Le Voleur peut choisir de voler un personnage, sauf l'Assassin ; lorsque le joueur dévoile son personnage, il donne ses pièces d'or au Voleur. Ceci se fait avant la perception par le joueur de ses pièces d'or du tour.",
-      name: "Le Voleur",
-      color: "blanc",
-    });
-
-    setDeckCards([
-      { name: "Taverne", cost: 1, quantity: 5, description: "", color: "bleu" },
-      {
-        name: "Échoppe",
-        cost: 2,
-        quantity: 3,
-        description: "",
-        color: "jaune",
-      },
-      { name: "Marché", cost: 2, quantity: 4, description: "", color: "verte" },
-      {
-        name: "Comptoir",
-        cost: 3,
-        quantity: 3,
-        description: "",
-        color: "violet",
-      },
-      { name: "Port", cost: 4, quantity: 3, description: "", color: "rouge" },
-      {
-        name: "Hôtel de ville",
-        cost: 5,
-        quantity: 2,
-        description: "",
-        color: "bleu",
-      },
-      {
-        name: "Cour des miracles",
-        cost: 2,
-        quantity: 1,
-        description:
-          "Compte comme un quartier de la couleur de votre choix pour le décompte final.",
-        color: "violet",
-      },
-      {
-        name: "Donjon",
-        cost: 3,
-        quantity: 2,
-        description: "Ne peut pas être détruit par le Condottiere.",
-        color: "violet",
-      },
-      {
-        name: "Laboratoire",
-        cost: 5,
-        quantity: 1,
-        description:
-          "Une fois par tour, défaussez une carte pour gagner 1 pièce d’or.",
-        color: "violet",
-      },
-    ]);
-    // 👇 Exemple de cartes construites (buildingCard)
-    setBuildingCard([
-      {
-        name: "Tour de guet",
-        cost: 1,
-        description: "Protège la cité.",
-        color: "rouge",
-      },
-      {
-        name: "Tour de guet",
-        cost: 1,
-        description: "Protège la cité.",
-        color: "rouge",
-      },
-      {
-        name: "Tour de guet",
-        cost: 1,
-        description: "Protège la cité.",
-        color: "rouge",
-      },
-      {
-        name: "Tour de guet",
-        cost: 1,
-        description: "Protège la cité.",
-        color: "rouge",
-      },
-      {
-        name: "Tour de guet",
-        cost: 1,
-        description: "Protège la cité.",
-        color: "rouge",
-      },
-
-      {
-        name: "Chapelle",
-        cost: 2,
-        description: "Lieu de prière.",
-        color: "bleu",
-      },
-      {
-        name: "Tour de guet",
-        cost: 1,
-        description: "Protège la cité.",
-        color: "rouge",
-      },
-    ]);
 
     const id = searchParams.get("id");
     const hostFlag = searchParams.get("isHost") === "true";
@@ -180,13 +83,25 @@ export default function GamePage() {
     console.log("🔄 Liste des parties mise à jour :", data)
   });
 
+  socket.on("endRoleSelection", (res) => {
+    handlePlayTurn();
+  });
+
+  socket.on("log", (message) => {
+    console.log("Log du serveur :", message);
+    logs.current.push(message);
+  });
+
 
   // 🧠 Ce useEffect se déclenche chaque fois que deckCards change :
   useEffect(() => {
     console.log("deckCards mis à jour :", deckCards);
   }, [deckCards]);
 
-  function getColorGradient(colorName: string) {
+  function getColorGradient(colorName: string | undefined) {
+    if (!colorName) {
+      return { top: "#4B4E6D", bottom: "#A8D8B9" }; // fallback
+    }
     switch (colorName.toLowerCase()) {
       case "bleu":
         return { top: "#4B6CB7", bottom: "#182848" };
@@ -221,27 +136,46 @@ export default function GamePage() {
   }
 
   useEffect(() => {
-    if (gameId && userName) {
-      console.log("test de join game", gameId, userName);
+    if (gameId && userName && !joinedRef.current) {
+      joinedRef.current = true;
       socket.emit("joinGame", { gameId, playerName: userName, isHost }, (res) => {
         if (!res.ok) {
           console.error("Erreur joinGame:", res.error);
           return;
         }
-        console.log("✅ Rejoint la partie avec playerId:", res.playerId);
+
+        if (res.reconnect) {
+          console.log("Reconnexion au jeu réussie.");
+          setGameId(gameId);
+          setGameStarted(true);
+          setIsLobbyOpen(false);
+          setGameState(res.gameState);
+          console.log("État du jeu restauré :", res.gameState, socket.id);
+          if (res.gameState?.players.find((p: any) => p.id === socket.id)?.role) {
+            setSelectedRole(
+              res.gameState.players.find((p: any) => p.id === socket.id)?.role
+            );
+          }
+        }
+
       });
 
       socket.on("gameStarted", () => {
         setGameStarted(true);
         setIsLobbyOpen(false);
-        console.log("🎮 Partie lancée !");
       });
 
       socket.on("gameState", (res) => {
-        console.log("📦 Nouvel état de jeu :", res);
+        setGameState(res);
       });
+    } else if (joinedRef.current) {
+      setGameId(gameId);
+      setGameStarted(true);
+      setIsLobbyOpen(false);
+
     }
-  }, [gameId, userName]);
+
+  }, [gameId, userName, isHost]);
 
   // 🔹 Fonction pour démarrer la partie (uniquement hôte)
   const handleStartGame = () => {
@@ -259,8 +193,39 @@ export default function GamePage() {
     });
   };
 
+  const handleChooseRole = (role: Role) => {
+    socket.emit("chooseRole", { gameId, role }, (res: any) => {
+      if (!res.ok) Swal.fire("Erreur", res.error, "error");
+      else setSelectedRole(role);
+    });
+  };
+
+  const handlePlayCard = (card: Building) => {
+    const player = gameState?.players.find((p: any) => p.id === idUser);
+    if (!player) return;
+    socket.emit("playCard", { gameId, idUser, card }, (res: any) => {
+      if (!res.ok) Swal.fire("Erreur", res.error, "error");
+    });
+  };
+
+  const handleEndTurn = () => {
+    socket.emit("endTurn", { gameId, idUser }, (res: any) => {
+      if (!res.ok) Swal.fire("Erreur", res.error, "error");
+      setSelectedRole(null);
+    });
+  };
+
+  const handlePlayTurn = () => {
+    Swal.fire({
+      icon: "info",
+      title: "C'est à votre tour de jouer !",
+      showConfirmButton: false,
+      timer: 1500,
+    });
+  };
+  
+
   const leaveGame = (playerId: string) => {
-    console.log("leaving game", gameId);
     socket.emit(
       "leaveGame",
       { gameId, playerId: socket.id },
@@ -356,17 +321,18 @@ export default function GamePage() {
                 <button
                   onClick={handleStartGame}
                   className="btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A]"
+                  disabled={players.length < 2}
                 >
                   Lancer la partie
                 </button>
               )}
               {isHost && (
-              <button
-                onClick={() => closeGame()}
-                className="btn btn-ghost border border-[#A8D8B9]"
-              >
-                Fermer
-              </button>)}
+                <button
+                  onClick={() => closeGame()}
+                  className="btn btn-ghost border border-[#A8D8B9]"
+                >
+                  Fermer la partie
+                </button>)}
               {!isHost && (
                 <button
                   onClick={() => leaveGame(idUser!)}
@@ -379,195 +345,286 @@ export default function GamePage() {
           </div>
         </dialog>
       )}
-      <div
-        id="gameSpace"
-        className="w-full h-[75vh] bg-[#C2B280]/20 flex mt-[5vh]"
-      >
-        {/* Colonne gauche */}
-        <div className="flex flex-col items-center space-y-4 w-1/4">
-          {[0, 1, 2].map((idx) => (
+      {
+        gameState?.gameStep === "roleSelection" && !selectedRole && gameState?.currentPlayerId ==socket.id && (
+          <dialog open className="modal">
+            <div className="modal-box bg-white rounded-2xl shadow-lg border border-[#A8D8B9] text-[#4B4E6D] w-1/2 max-w-5xl">
+              <h2 className="text-2xl font-bold mb-4">Choisissez votre rôle</h2>
+              <div className="grid grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto ">
+                {gameState?.rolesPool.map((role: Role, idx: number) => {
+                  return (
+                    <div
+                      key={idx}
+                      className="cursor-pointer"
+                    >
+                      <RoleCard
+                        name={role.name}
+                        description={role.description}
+                        backgroundColors={getColorGradient(role.color)}
+                        choiceHandler={() => handleChooseRole(role)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </dialog>
+        )
+      }
+      {
+        !isLobbyOpen && gameStarted && (
+          <>
             <div
-              key={idx}
-              className="flex flex-wrap items-center bg-[#00000033] rounded-lg p-2 w-full"
+              id="gameSpace"
+              className="w-full h-[75vh] bg-[#C2B280]/20 flex mt-[5vh]"
             >
-              <p className="text-white font-bold mb-1">Joueur {idx + 1}</p>
-              {/* Cartes construites */}
-              <div className="flex flex-wrap gap-4 space-x-2 overflow-x-auto">
-                {buildingCard.map((card, cardIdx) => (
-                  <GameCard
-                    key={cardIdx}
-                    id={cardIdx}
-                    name={card.name}
-                    description={card.description}
-                    price={card.cost.toString()}
-                    backgroundColors={getColorGradient(card.color)}
-                    isPlayed={true}
-                    type={getBuildingRole(card.color)}
-                  />
-                ))}
+              <div className="flex flex-col items-center space-y-4 w-1/4">
+                {gameState?.players
+                  .slice(0, Math.ceil(gameState.players.length / 2)) // moitié gauche
+                  .map((p, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-col items-center bg-[#00000033] rounded-lg p-2 w-full"
+                    >
+                      <p className="text-white font-bold mb-1">{p.name}</p>
+                      <div className="flex flex-wrap gap-4 space-x-2 overflow-x-auto">
+                        {p.city.map((card, cardIdx) => (
+                          <GameCard
+                            key={cardIdx}
+                            id={cardIdx}
+                            name={card.name}
+                            description={card.description}
+                            price={card.cost.toString()}
+                            backgroundColors={getColorGradient(card.color)}
+                            isPlayed={true}
+                            type={getBuildingRole(card.color)}
+                            isPlayable={false}
+                            canBeBuilded={false}
+                            isCondotiere={p.role?.name === "Condottiere"}
+                            onDestroyHandler={() => {
+                            socket.emit("destroyBuilding", { gameId, playerId: socket.id, card }, (res: any) => {
+                              if (!res.ok) Swal.fire("Erreur", res.error, "error");
+                            });
+                          }}
+                          />
+                        ))}
+                      </div>
+                      {/* Ressources */}
+                      <div className="flex space-x-2 mt-2">
+                        <div className="flex items-center space-x-1">
+                          <p className="text-white">{p.hand.length}</p>
+                          <Image
+                            src="/game/flash-cards.png"
+                            alt="cartes"
+                            width={24}
+                            height={20}
+                          />
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <p className="text-white">{p.gold}</p>
+                          <Image
+                            src="/game/coin.png"
+                            alt="pièces"
+                            width={24}
+                            height={20}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
               </div>
-              {/* Ressources */}
-              <div className="flex space-x-2 mt-2">
-                <div className="flex items-center space-x-1">
-                  <p className="text-white">9</p>
-                  <Image
-                    src="/game/flash-cards.png"
-                    alt="cartes"
-                    width={24}
-                    height={20}
-                  />
-                </div>
-                <div className="flex items-center space-x-1">
-                  <p className="text-white">9</p>
-                  <Image
-                    src="/game/coin.png"
-                    alt="pièces"
-                    width={24}
-                    height={20}
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
 
-        {/* Colonne centrale */}
-        <div className="flex flex-col justify-between items-center flex-end space-y-6 w-1/2 ">
-          {/* Rôle en cours */}
-          {role && (
-            <div>
-              <h2 className="text-white font-bold mb-2 text-center">
-                C&apos;est au tour du :{" "}
-              </h2>
-              <RoleCard
-                name={role.name}
-                description={""}
-                backgroundColors={getColorGradient(role.color)}
-              />
-            </div>
-          )}
-          {/* Joueur principal */}
-          <div className="flex flex-col items-center bg-[#00000033] rounded-lg p-4 w-5/6">
-            <p className="text-white font-bold mb-2">Votre ville : </p>
-            <div className="flex flex-wrap  space-x-2 overflow-x-auto">
-              {buildingCard.map((card, cardIdx) => (
-                <GameCard
-                  key={cardIdx}
-                  id={cardIdx}
-                  name={card.name}
-                  description={card.description}
-                  price={card.cost.toString()}
-                  backgroundColors={getColorGradient(card.color)}
-                  isPlayed={true}
-                  type={getBuildingRole(card.color)}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Colonne droite */}
-        <div className="flex flex-col items-center space-y-4 w-1/4">
-          {[2, 3, 4].map((idx) => (
-            <div
-              key={idx}
-              className="flex flex-col items-center bg-[#00000033] rounded-lg p-2 w-full"
-            >
-              <p className="text-white font-bold mb-1">Joueur {idx + 3}</p>
-              <div className="flex flex-wrap gap-4 space-x-2 overflow-x-auto">
-                {buildingCard.map((card, cardIdx) => (
-                  <GameCard
-                    key={cardIdx}
-                    id={cardIdx}
-                    name={card.name}
-                    description={card.description}
-                    price={card.cost.toString()}
-                    backgroundColors={getColorGradient(card.color)}
-                    isPlayed={true}
-                    type={getBuildingRole(card.color)}
-                  />
-                ))}
-              </div>
-              <div className="flex space-x-2 mt-2">
-                <div className="flex items-center space-x-1">
-                  <p className="text-white">9</p>
-                  <Image
-                    src="/game/flash-cards.png"
-                    alt="cartes"
-                    width={24}
-                    height={20}
-                  />
-                </div>
-                <div className="flex items-center space-x-1">
-                  <p className="text-white">9</p>
-                  <Image
-                    src="/game/coin.png"
-                    alt="pièces"
-                    width={24}
-                    height={20}
-                  />
+              {/* Colonne centrale */}
+              <div className="flex flex-col justify-between items-center flex-end space-y-6 w-1/2 ">
+                {/* Rôle en cours */}
+                {gameState?.currentRole && (
+                  <div>
+                    <h2 className="text-white font-bold mb-2 text-center">
+                      C&apos;est au tour du :{" "}
+                    </h2>
+                    <RoleCard
+                      name={gameState?.currentRole?.name}
+                      description={""}
+                      backgroundColors={getColorGradient(gameState?.currentRole.color)}
+                    />
+                  </div>
+                )}
+                {/* Joueur principal */}
+                <div className="flex flex-col items-center bg-[#00000033] rounded-lg p-4 w-5/6">
+                  <p className="text-white font-bold mb-2">Votre ville : </p>
+                  <div className="flex flex-wrap  space-x-2 overflow-x-auto">
+                    {gameState?.players?.find(p => p.id === socket.id)?.city
+                      .map((card, cardIdx) => (
+                        <GameCard
+                          key={cardIdx}
+                          id={cardIdx}
+                          name={card.name}
+                          description={card.description}
+                          price={card.cost.toString()}
+                          backgroundColors={getColorGradient(card.color)}
+                          isPlayed={true}
+                          type={getBuildingRole(card.color)}
+                          isPlayable={false}
+                          canBeBuilded={false}
+                          isCondotiere={gameState?.players?.find(p => p.id === socket.id)?.role?.name === "Condottiere"}
+                          onDestroyHandler={() => {
+                            socket.emit("destroyBuilding", { gameId, playerId: socket.id, card }, (res: any) => {
+                              if (!res.ok) Swal.fire("Erreur", res.error, "error");
+                            });
+                          }}
+                        />
+                      ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="absolute bottom-0 w-full flex items-end justify-around overflow-hidden">
-        <div>
-          {role && (
-            <RoleCard
-              name={role.name}
-              description={role.description}
-              backgroundColors={getColorGradient(role.color)}
-            />
-          )}
-        </div>
 
-        <div className="flex w-2/3 justify-center space-x-[-32px] relative">
-          <div className="flex w-2/3 justify-center space-x-[-32px] relative">
-            {deckCards.length > 0 ? (
-              deckCards.map((eachData, index) => (
-                <GameCard
-                  key={index}
-                  id={index}
-                  name={eachData.name}
-                  description={eachData.description}
-                  price={eachData.cost.toString()}
-                  backgroundColors={getColorGradient(eachData.color)}
-                  isPlayed={false}
-                  type={getBuildingRole(eachData.color)}
-                />
-              ))
-            ) : (
-              <p className="text-white">Chargement des cartes...</p>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-col">
-          <div className="flex flex-row items-center justify-between ml-12">
-            <p className="h-fit text-xl text-white">9</p>
-            <Image
-              src={"/game/flash-cards.png"}
-              alt="$"
-              width={50}
-              height={40}
-              priority
-              className="object-contain"
-            ></Image>
-          </div>
-          <div className="flex flex-row items-center justify-between ml-12">
-            <p className="h-fit text-xl text-white">9</p>
-            <Image
-              src={"/game/coin.png"}
-              alt="$"
-              width={50}
-              height={40}
-              priority
-              className="object-contain"
-            ></Image>
-          </div>
-        </div>
-      </div>
+              {/* Colonne droite */}
+              <div className="flex flex-col items-center space-y-4 w-1/4">
+                {gameState?.players
+                  .slice(Math.ceil(gameState.players.length / 2)) // moitié droite
+                  .map((p, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-col items-center bg-[#00000033] rounded-lg p-2 w-full"
+                    >
+                      <p className="text-white font-bold mb-1">{p.name}</p>
+                      <div className="flex flex-wrap gap-4 space-x-2 overflow-x-auto">
+                        {p.city.map((card, cardIdx) => (
+                          <GameCard
+                            key={cardIdx}
+                            id={cardIdx}
+                            name={card.name}
+                            description={card.description}
+                            price={card.cost.toString()}
+                            backgroundColors={getColorGradient(card.color)}
+                            isPlayed={true}
+                            type={getBuildingRole(card.color)}
+                            isPlayable={false}
+                            canBeBuilded={false}
+                            isCondotiere={p.role?.name === "Condottiere"}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex space-x-2 mt-2">
+                        <div className="flex items-center space-x-1">
+                          <p className="text-white">{p.hand.length}</p>
+                          <Image
+                            src="/game/flash-cards.png"
+                            alt="cartes"
+                            width={24}
+                            height={20}
+                          />
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <p className="text-white">{p.gold}</p>
+                          <Image
+                            src="/game/coin.png"
+                            alt="pièces"
+                            width={24}
+                            height={20}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+            <div className="absolute bottom-0 w-full flex items-end justify-around overflow-hidden">
+              <div>
+                {selectedRole && (
+                  <RoleCard
+                    name={gameState?.players?.find(p => p.id === socket.id)?.role?.name}
+                    description={gameState?.players?.find(p => p.id === socket.id)?.role?.description}
+                    backgroundColors={getColorGradient(gameState?.players?.find(p => p.id === socket.id)?.role?.color)}
+                  />
+                )}
+              </div>
+
+              <div className="flex w-4/7 justify-center space-x-[-32px] relative">
+                <div className="flex w-2/3 justify-center space-x-[-32px] relative">
+                  {gameState?.players?.find(p => p.id === socket.id)?.hand ? (
+                    gameState?.players?.find(p => p.id === socket.id)?.hand
+                      .map((card, cardIdx) => (
+                        <GameCard
+                          key={cardIdx}
+                          id={cardIdx}
+                          name={card.name}
+                          description={card.description}
+                          price={card.cost.toString()}
+                          backgroundColors={getColorGradient(card.color)}
+                          isPlayed={false}
+                          type={getBuildingRole(card.color)}
+                          isPlayable={true}
+                          canBeBuilded={card.cost <= gameState?.players?.find(p => p.id === socket.id)?.gold! && gameState?.currentPlayerId === socket.id }
+                          handleBuildCard={() => handlePlayCard(card)}
+                          onDestroyHandler={() => {
+                            socket.emit("playerAction", { gameId, playerId: socket.id, roleSpecial: 'roleSpecial', role: 'Condotiere' }, (res: any) => {
+                              if (!res.ok) Swal.fire("Erreur", res.error, "error");
+                            });
+                          }}
+                        />
+                      ))
+                  ) : (
+                    <p className="text-white">Chargement des cartes...</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col">
+                <div className="flex flex-row items-center justify-between ml-12">
+                  <p className="h-fit text-xl text-white">{gameState?.players?.find(p => p.id === socket.id)?.hand.length}</p>
+                  <Image
+                    src={"/game/flash-cards.png"}
+                    alt="$"
+                    width={50}
+                    height={40}
+                    priority
+                    className="object-contain"
+                  ></Image>
+                </div>
+                <div className="flex flex-row items-center justify-between ml-12">
+                  <p className="h-fit text-xl text-white">{gameState?.players?.find(p => p.id === socket.id)?.gold}</p>
+                  <Image
+                    src={"/game/coin.png"}
+                    alt="$"
+                    width={50}
+                    height={40}
+                    priority
+                    className="object-contain"
+                  ></Image>
+                </div>
+              </div>
+              {
+                gameState?.players?.find(p => p.id === socket.id)?.id === gameState?.currentPlayerId && (
+                  <div className="flex flex-col">
+                    <button
+                      onClick={handleEndTurn}
+                      className="btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] mb-2"
+                    >
+                      Terminer mon tour
+                    </button>
+                  </div>
+                )
+              }
+              <div>
+                Liste des actions :
+                <div className="h-40 w-64 overflow-y-auto bg-white/80 rounded-lg p-2 border border-[#A8D8B9]">
+                  {logs.current.length === 0 ? (
+                    <p className="text-slate-500">Aucune action pour le moment.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {logs.current.map((log, index) => (
+                        <li key={index} className="text-sm text-slate-700">
+                          {log}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+              
+            </div>
+          </>
+        )}
     </main>
   );
 }
