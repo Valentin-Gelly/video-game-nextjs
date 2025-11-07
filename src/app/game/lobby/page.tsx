@@ -47,7 +47,6 @@ export default function Lobby() {
     return () => {
       socket.off("gameState");
       socket.off("updatePlayers");
-  
     };
   }, []);
 
@@ -85,7 +84,7 @@ export default function Lobby() {
           "my_modal_1"
         ) as HTMLDialogElement;
         modal.close();
-        router.push(`/game/game-table?id=${gameId}&isHost=true`);
+        router.push(`/game/game-table/${gameId}?isHost=true`);
       }
     );
   }
@@ -93,7 +92,7 @@ export default function Lobby() {
   async function joinGame(gameId?: string) {
     setIsLoading(true);
 
-    router.push(`/game/game-table?id=${gameId}&isHost=false`);
+    router.push(`/game/game-table/${gameId}?isHost=false`);
   }
 
   return (
@@ -159,8 +158,9 @@ export default function Lobby() {
                 <button
                   type="button"
                   disabled={isLoading}
-                  className={`btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] transition-all ${isLoading ? "opacity-70 cursor-not-allowed" : ""
-                    }`}
+                  className={`btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] transition-all ${
+                    isLoading ? "opacity-70 cursor-not-allowed" : ""
+                  }`}
                   onClick={handleCreateGame}
                 >
                   {isLoading ? (
@@ -227,14 +227,14 @@ export default function Lobby() {
                   </p>
                 </div>
                 {c.game.state === "WAITING" && (
-                        
-                <Link
-                  href={`/game/game-table?id=${c.game.id}`}
-                  onClick={() => joinGame(c.game.id)}
-                  className="bg-[#7D5B3A] text-white px-4 py-2 rounded-lg hover:scale-105 transition-transform"
-                >
-                  Rejoindre
-                </Link>)}
+                  <Link
+                    href={`/game/game-table/${c.game.id}`}
+                    onClick={() => joinGame(c.game.id)}
+                    className="bg-[#7D5B3A] text-white px-4 py-2 rounded-lg hover:scale-105 transition-transform"
+                  >
+                    Rejoindre
+                  </Link>
+                )}
               </div>
 
               <details className="mt-2 text-slate-500">

@@ -150,8 +150,6 @@ async function createGame(
 
   const roles: Role[] = await resRoles.json();
 
-  console.log("✅ Cartes chargées :", cards);
-
   return {
     id: uuidv4(),
     code: Math.random().toString(36).slice(2).slice(0, 6).toUpperCase(),
@@ -182,6 +180,7 @@ export function shuffleCards(cards: Building[]): Building[] {
 
   return deck;
 }
+
 app.prepare().then(() => {
   const handler = app.getRequestHandler();
   const httpServer = createServer(handler);
@@ -351,7 +350,7 @@ app.prepare().then(() => {
         const orderedRoles = ROLES.sort((a, b) => a.order - b.order);
 
         // 🔹 Cherche le premier joueur dont le rôle correspond à un rôle valide
-        let firstPlayer: any = null;
+        let firstPlayer: never = null;
         for (const role of orderedRoles) {
           const candidate = g.gameState.players.find(p => p.role?.name === role.name);
           if (candidate) {
