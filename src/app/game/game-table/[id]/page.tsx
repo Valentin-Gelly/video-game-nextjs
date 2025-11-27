@@ -33,6 +33,45 @@ export default function GamePage({
   const joinedRef = useRef(false);
   const isHost = useRef(searchParams.get("isHost") === "true");
   const logs = useRef<string[]>([]);
+  const [pageLoaded, setpageLoaded] = useState(false);
+
+
+  function getColorGradient(colorName: string | undefined) {
+    if (!colorName) {
+      return { top: "#4B4E6D", bottom: "#A8D8B9" }; // fallback
+    }
+    switch (colorName.toLowerCase()) {
+      case "bleu":
+        return { top: "#4B6CB7", bottom: "#182848" };
+      case "jaune":
+        return { top: "#FFEE58", bottom: "#F9A825" };
+      case "vert":
+        return { top: "#56ab2f", bottom: "#a8e063" };
+      case "violet":
+        return { top: "#8E2DE2", bottom: "#4A00E0" };
+      case "rouge":
+        return { top: "#FF416C", bottom: "#FF4B2B" };
+      default:
+        return { top: "#4B4E6D", bottom: "#A8D8B9" }; // fallback
+    }
+  }
+
+  function getBuildingRole(colorName: string) {
+    switch (colorName.toLowerCase()) {
+      case "bleu":
+        return "Évêque";
+      case "jaune":
+        return "Roi";
+      case "verte":
+        return "Marchand";
+      case "violet":
+        return "Mystique";
+      case "rouge":
+        return "Condottiere";
+      default:
+        return "neutre";
+    }
+  }
 
   useEffect(() => {
     console.log('changement id, router');
@@ -146,94 +185,81 @@ export default function GamePage({
 
   }, [turnStatus])
 
-  socket.on("updatePlayers", (res) => {
-    console.log("Mise à jour des joueurs :", res.players);
-    setPlayers(res.players);
-  });
-
-  socket.on("gameClosed", () => {
-    Swal.fire({
-      icon: "info",
-      title: "La partie a été fermée par l'hôte",
-      showConfirmButton: false,
-      timer: 1500,
-    });
-    router.push("/game/lobby");
-  });
-
-  socket.on("updateGameList", (data) => {
-    console.log("🔄 Liste des parties mise à jour :", data);
-  });
-
-  socket.on("endRoleSelection", (res) => {
-    console.log("Sélection des rôles terminée :", res);
-    handlePlayTurn();
-  });
-
-  socket.on("log", (message) => {
-    console.log("Log du serveur :", message);
-    logs.current.push(message);
-  });
-
-  function getColorGradient(colorName: string | undefined) {
-    if (!colorName) {
-      return { top: "#4B4E6D", bottom: "#A8D8B9" }; // fallback
-    }
-    switch (colorName.toLowerCase()) {
-      case "bleu":
-        return { top: "#4B6CB7", bottom: "#182848" };
-      case "jaune":
-        return { top: "#FFEE58", bottom: "#F9A825" };
-      case "vert":
-        return { top: "#56ab2f", bottom: "#a8e063" };
-      case "violet":
-        return { top: "#8E2DE2", bottom: "#4A00E0" };
-      case "rouge":
-        return { top: "#FF416C", bottom: "#FF4B2B" };
-      default:
-        return { top: "#4B4E6D", bottom: "#A8D8B9" }; // fallback
-    }
-  }
-
-  function getBuildingRole(colorName: string) {
-    switch (colorName.toLowerCase()) {
-      case "bleu":
-        return "Évêque";
-      case "jaune":
-        return "Roi";
-      case "verte":
-        return "Marchand";
-      case "violet":
-        return "Mystique";
-      case "rouge":
-        return "Condottiere";
-      default:
-        return "neutre";
-    }
-  }
-
-  socket.on("gameStarted", () => {
-    setGameStarted(true);
-    setIsLobbyOpen(false);
-  });
-
   useEffect(() => {
-    const handleGameState = (res) => {
-      if (!res) return;
-      if (res.gameState) return; // garde-fou inutile à vérifier si nécessaire
-      console.log("🌀 Nouveau gameState :", res);
+    if (pageLoaded) return;
+
+    socket.on("updatePlayers", (res) => {
+      console.log("Mise à jour des joueurs :", res.players);
+      setPlayers(res.players);
+    });
+
+    socket.on("gameClosed", () => {
+      Swal.fire({
+        icon: "info",
+        title: "La partie a été fermée par l'hôte",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      router.push("/game/lobby");
+    });
+
+    socket.on("endRoleSelection", (res) => {
+      console.log("Sélection des rôles terminée :", res);
+      handlePlayTurn();
+    });
+
+    socket.on("log", (message) => {
+      console.log("Log du serveur :", message);
+      logs.current.push(message);
+    });
+
+    socket.on("gameStarted", () => {
+      setGameStarted(true);
+      setIsLobbyOpen(false);
+    });
+
+    socket.on("gameEnded", () => {
+      Swal.fire({
+        icon: "info",
+        title: "La partie est terminée !",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      router.push("/game/lobby");
+    });
+
+    socket.on("roundEnded", (res) => {
       setGameState(res);
-    };
+      setSelectedRole(undefined);
+      setTurnStatus('');
+      Swal.fire({
+        icon: "info",
+        title: "Le tour est terminé !",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      socket.emit("startNextRound", { gameId }, (res: { ok: boolean }) => {
+        if (!res.ok) {
+          Swal.fire("Erreur", "Impossible de démarrer le tour suivant.", "error");
+        }
+      });
+    });
 
     socket.on("gameState", handleGameState);
-    return () => socket.off("gameState", handleGameState);
+    setpageLoaded(true);
   }, []);
-
-  // --- Déclenche handlePlayTurn une fois que tout est prêt ---
+const handleGameState = (res) => {
+    if (!res) return;
+    if (res.gameState) return; 
+    console.log("🌀 Nouveau gameState :", res);
+    console.log(gameState?.gameStep === "roleSelection",
+        !selectedRole ,
+        gameState?.currentPlayerId == socket.id)
+    setGameState(res);
+  };
   useEffect(() => {
     if (!gameState) return;
 
-    // Trouve le rôle du joueur si non encore sélectionné
     const myRole =
       selectedRole ||
       gameState.players.find((p) => p.id === socket.id)?.role ||
@@ -288,7 +314,7 @@ export default function GamePage({
   };
 
   const handleEndTurn = () => {
-    socket.emit("endTurn", { gameId, idUser }, (res: any) => {
+    socket.emit("endTurn", { gameId, playerId: socket.id }, (res: any) => {
       if (!res.ok) Swal.fire("Erreur", res.error, "error");
       setSelectedRole(undefined);
       console.log("Tour terminé, rôle réinitialisé");
@@ -296,14 +322,18 @@ export default function GamePage({
   };
 
   const handlePlayTurn = (role: Role) => {
-    if (gameState?.currentPlayerId === socket.id && selectedRole) {
+    const isAlive = () => {
+      const player = gameState?.players.find((p) => p.id === socket.id);
+      return player?.isAlive !== false;
+    };
+    if (gameState?.currentPlayerId === socket.id && selectedRole && isAlive()) {
       Swal.fire({
         icon: "info",
         title: "C'est à votre tour de jouer !",
         showConfirmButton: false,
         timer: 1500,
       });
-      if (selectedRole?.name === "Assassin") {
+      if (selectedRole?.name === "Assassin" && isAlive()) {
         Swal.fire({
           icon: "info",
           title: "C'est à votre tour de jouer !",
@@ -355,7 +385,7 @@ export default function GamePage({
             },
           });
         })
-      } else if (selectedRole?.name === "Magicien") {
+      } else if (selectedRole?.name === "Magicien" && isAlive()) {
         Swal.fire({
           title: "Choisissez une action spéciale",
           input: "select",
@@ -417,7 +447,7 @@ export default function GamePage({
             });
           },
         });
-      } else if (selectedRole?.name === "Voleur") {
+      } else if (selectedRole?.name === "Voleur" && isAlive()) {
         Swal.fire({
           title: "Choisissez un rôle à voler",
           input: "select",
@@ -465,7 +495,7 @@ export default function GamePage({
             });
           },
         });
-      } else if (selectedRole?.name === "Marchand") {
+      } else if (selectedRole?.name === "Marchand" && isAlive()) {
         socket.emit(
           "playerAction",
           {
@@ -483,7 +513,7 @@ export default function GamePage({
             }
           }
         );
-      } else if (selectedRole?.name === "Architecte") {
+      } else if (selectedRole?.name === "Architecte" && isAlive()) {
         socket.emit(
           "playerAction",
           {
@@ -501,7 +531,7 @@ export default function GamePage({
             }
           }
         );
-      } else if (selectedRole?.name === "Roi") {
+      } else if (selectedRole?.name === "Roi" && isAlive()) {
         socket.emit(
           "playerAction",
           {
@@ -520,6 +550,16 @@ export default function GamePage({
           }
         );
       }
+    } else if (gameState?.currentPlayerId === socket.id && selectedRole && !isAlive()) {
+      Swal.fire({
+        icon: "info",
+        title: "Vous êtes mort ce tour-ci et ne pouvez pas jouer.",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      setTimeout(() => {
+        handleEndTurn();
+      }, 1600);
     }
   };
 

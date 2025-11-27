@@ -297,7 +297,6 @@ app.prepare().then(() => {
       for (const p of g.gameState.players) {
         p.hand = g.gameState.deck.splice(0, 4);
       }
-      g.gameState.phase = "roles";
       g.gameState.rolesOrder = [
         "Assassin",
         "Voleur",
@@ -310,8 +309,9 @@ app.prepare().then(() => {
       ];
       g.gameState.phase = "roles";
       g.gameState.rolesPool = ROLES.map(r => r);
-      g.gameState.rolesOrder = [];
       g.gameState.currentPlayerId = g.gameState.players[0]?.id;
+      g.gameState.currentRole = undefined;
+      g.gameState.crownHolderId = g.gameState.players[0]?.id;
       g.game.state = "IN_PROGRESS";
       io.to(`${gameId}`).emit("gameStarted");
       io.to(`${gameId}`).emit("gameState", g.gameState);
@@ -319,7 +319,6 @@ app.prepare().then(() => {
     });
 
     socket.on("chooseRole", ({ gameId, role }, cb) => {
-      console.log(`🔹 Choix du rôle dans la partie ${gameId}: ${role.name}`);
       const g = games.get(gameId);
       if (!g) return cb({ ok: false, error: "Game not found" });
 
@@ -335,6 +334,7 @@ app.prepare().then(() => {
       player.role = role;
       g.gameState.rolesPool = g.gameState.rolesPool.filter(r => r.name !== role.name);
       g.gameState.rolesOrder?.push(role);
+      g.gameState.players = g.gameState.players.map(p => p.id === player.id ? player : p);
 
       const remainingPlayers = g.gameState.players.filter(p => !p.role);
       if (remainingPlayers.length > 0) {
@@ -376,7 +376,6 @@ app.prepare().then(() => {
       if (g.gameState.currentPlayerId !== playerId)
         return cb({ ok: false, error: "Not your turn" });
 
-
       switch (action) {
         case "takeGold":
           player.gold += 2;
@@ -400,9 +399,6 @@ app.prepare().then(() => {
 
         case "build": {
           const card = player.hand.find((c) => c.id === cardToKeep.id);
-          console.log(player.city);
-          console.log(player.hand);
-          console.log(player.gold);
           if (!card) return cb({ ok: false, error: "Card not in hand" });
           if (player.gold < card.cost)
             return cb({ ok: false, error: "Not enough gold" });
@@ -415,9 +411,14 @@ app.prepare().then(() => {
             (p) => p.id === player.id
           );
 
-          const nextIndex = (currentIndex + 1) % g.gameState.players.length;
-          g.gameState.currentPlayerId = g.gameState.players[nextIndex].id;
-
+          const nextIndex = (currentIndex + 1);
+          if (nextIndex > g.gameState.players.length) {
+            g.gameState.phase = "endRound";
+            setNewRound(g)
+            io.to(gameId).emit("roundEnded", g.gameState);
+          } else {
+            g.gameState.currentPlayerId = g.gameState.players[nextIndex].id;
+          }
           io.to(gameId).emit("gameState", g.gameState);
 
           cb({ ok: true });
@@ -550,8 +551,8 @@ app.prepare().then(() => {
       if (!g) return cb({ ok: false, error: "Game not found" });
       const current = g.gameState.players.find((p) => p.id === playerId);
       if (!current) return cb({ ok: false, error: "Player not found" });
-      if (g.gameState.currentPlayerId !== playerId)
-        return cb({ ok: false, error: "Not your turn" });
+      if (g.gameState.currentPlayerId !== playerId && current.isAlive)
+        return cb({ ok: false, error: "Veuiller patienter les joueurs choisissent leur rôle" });
 
       const orderedRoles = [
         "Assassin",
@@ -563,20 +564,37 @@ app.prepare().then(() => {
         "Architecte",
         "Condottiere",
       ];
-      const currentIndex = orderedRoles.indexOf(g.gameState.currentRole!.name);
+      const currentIndex = orderedRoles.indexOf(current.role!.name);
       let nextPlayer;
       for (let i = currentIndex + 1; i < orderedRoles.length; i++) {
         const nextRole = orderedRoles[i];
-        nextPlayer = g.gameState.players.find((p) => p.role?.name === nextRole && p.isAlive);
+        nextPlayer = g.gameState.players.find((p) => p.role?.name === nextRole);
         if (nextPlayer) break;
       }
 
       if (!nextPlayer) {
         g.gameState.phase = "endRound";
+        setNewRound(g)
         io.to(gameId).emit("roundEnded", g.gameState);
         return cb({ ok: true, message: "Round ended" });
+      } else if (nextPlayer.isAlive === false) {
+        g.gameState.currentRole = nextPlayer.role;
+        const roleIndex = g.gameState.rolesOrder?.indexOf(nextPlayer.role!.name);
+        const nextIndex = (roleIndex !== undefined) ? roleIndex + 1 : 0;
+        if (g.gameState.rolesOrder && g.gameState.rolesOrder[nextIndex] !== undefined) {
+          const nextPlayer = g.gameState.players.find(p => p.role?.name === g.gameState.rolesOrder[nextIndex]);
+          if (nextPlayer) {
+            g.gameState.currentRole = nextPlayer.role;
+            g.gameState.currentPlayerId = nextPlayer.id;
+          } else {
+            g.gameState.phase = "endRound";
+            setNewRound(g)
+            io.to(gameId).emit("roundEnded", g.gameState);
+          }
+        io.to(gameId).emit("gameState", g.gameState);
+        }
+        return cb({ ok: true, message: "Next player was assassinated, skipping turn" });
       }
-
       g.gameState.currentPlayerId = nextPlayer.id;
       io.to(gameId).emit("gameState", g.gameState);
       cb({ ok: true });
@@ -592,6 +610,16 @@ app.prepare().then(() => {
     socket.on("disconnect", () => {
       console.log("socket disconnected", socket.id);
       // optionnel : marquer comme déconnecté; ne pas supprimer joueur immédiatement
+    });
+
+    socket.on('startNextRound', ({ gameId }, cb) => {
+      const g = games.get(gameId);
+      if (g) {
+        console.log('startNextRound', gameId);
+        setNewRound(g);
+        io.to(gameId).emit("gameState", g.gameState);
+        cb({ ok: true });
+      }
     });
   });
 
@@ -622,4 +650,26 @@ function getGameByCode(code: string) {
     }
   }
   return undefined; // si aucun match
+}
+
+function setNewRound(g: { game: Game; gameState: GameState; }) {
+  g.gameState.rolesOrder = [
+    "Assassin",
+    "Voleur",
+    "Magicien",
+    "Roi",
+    "Eveque",
+    "Condottiere",
+    "Marchand",
+    "Architecte",
+  ];
+  g.gameState.gameStep = "roleSelection";
+  for (const p of g.gameState.players) {
+    p.role = undefined;
+    p.isAlive = true;
+  }
+  g.gameState.rolesPool = ROLES.map(r => r);
+  g.gameState.currentPlayerId = g.gameState.crownHolderId;
+  g.gameState.currentRole = undefined;
+  return g;
 }
