@@ -264,7 +264,6 @@ app.prepare().then(() => {
 
 
     socket.on('leaveGame', ({ gameId, playerId }, cb) => {
-      console.log("leaving game", gameId, playerId);
       const g = games.get(gameId);
       if (!g) return cb({ ok: false, error: "Game not found" });
       g.game.players = g.game.players.filter((p) => p.id !== playerId);
@@ -277,9 +276,7 @@ app.prepare().then(() => {
 
     socket.on("gameList", (cb) => {
       try {
-        console.log("gamelist 2", games);
         const gameList = Array.from(games.values());
-        console.log("gameListe after treatment", gameList);
         cb({ ok: true, gameList });
       } catch (err) {
         console.error("Erreur création de partie :", err);
@@ -322,13 +319,13 @@ app.prepare().then(() => {
     });
 
     socket.on("chooseRole", ({ gameId, role }, cb) => {
+      console.log(`🔹 Choix du rôle dans la partie ${gameId}: ${role.name}`);
       const g = games.get(gameId);
       if (!g) return cb({ ok: false, error: "Game not found" });
 
       const player = g.gameState.players.find(p => p.id === g.gameState.currentPlayerId);
       if (!player) return cb({ ok: false, error: "Player not found" });
 
-      console.log(role, g.gameState.rolesPool);
       // vérifier que le rôle est disponible
       if (!g.gameState.rolesPool.some((r: Role) => r.name.toLowerCase() === role.name.toLowerCase())) {
         return cb({ ok: false, error: "Role not available" });
@@ -339,18 +336,16 @@ app.prepare().then(() => {
       g.gameState.rolesPool = g.gameState.rolesPool.filter(r => r.name !== role.name);
       g.gameState.rolesOrder?.push(role);
 
-      // déterminer le joueur suivant pour choisir un rôle
       const remainingPlayers = g.gameState.players.filter(p => !p.role);
       if (remainingPlayers.length > 0) {
         g.gameState.currentPlayerId = remainingPlayers[0].id;
       } else {
-        g.gameState.phase = "playerTurn";
+        g.gameState.gameStep = "playerTurn";
+        g.gameState.rolesPool = ROLES.map(r => r);
 
-        // 🔹 Rôles ordonnés par ordre croissant
-        const orderedRoles = ROLES.sort((a, b) => a.order - b.order);
+        const orderedRoles = ROLES.toSorted((a, b) => a.order - b.order);
 
-        // 🔹 Cherche le premier joueur dont le rôle correspond à un rôle valide
-        let firstPlayer: never = null;
+        let firstPlayer: Player | null = null;
         for (const role of orderedRoles) {
           const candidate = g.gameState.players.find(p => p.role?.name === role.name);
           if (candidate) {
@@ -358,11 +353,12 @@ app.prepare().then(() => {
             break;
           }
         }
-
+        if (!firstPlayer) {
+          return cb({ ok: false, error: "No player found for first turn" });
+        }
         g.gameState.currentPlayerId = firstPlayer.id;
-        io.to(gameId).emit("log", `${firstPlayer.name} commence le tour avec le rôle ${firstPlayer.role.name} !`)
+        io.to(gameId).emit("log", `${firstPlayer.name} commence le tour avec le rôle ${firstPlayer.role!.name} !`)
 
-        io.to(gameId).emit("endRoleSelection", g.gameState);
         io.to(gameId).emit("gameState", g.gameState);
         io.to(gameId).emit("log", `Tous les joueurs ont choisi leurs rôles !`);
         return cb({ ok: true, role, message: "All roles chosen" });
@@ -371,52 +367,8 @@ app.prepare().then(() => {
       cb({ ok: true, role });
     });
 
-    socket.on("playCard", ({ gameId, playerId, cardPlayed }, cb) => {
-      const g = games.get(gameId);
-      if (!g) return cb({ ok: false, error: "Game not found" });
-      const p = g.gameState.players.find((x) => x.id === playerId);
-      if (!p) return cb({ ok: false, error: "Player not found" });
-      // validation : c'est bien le tour du joueur ?
-      if (g.gameState.currentPlayerId !== playerId)
-        return cb({ ok: false, error: "Not your turn" });
-      const cardIndex = p.hand.findIndex((c) => c.id === cardPlayed.id);
-      if (cardIndex === -1) return cb({ ok: false, error: "Card not in hand" });
-      const card = p.hand.splice(cardIndex, 1)[0];
-      p.city.push(card);
-      io.to(`${gameId}`).emit("gameState", g.gameState);
-      cb({ ok: true });
-    });
-
-
-    socket.on("startTurn", ({ gameId, playerId }, cb) => {
-      const g = games.get(gameId);
-      if (!g) return cb({ ok: false, error: "Game not found" });
-
-      const player = g.gameState.players.find((p) => p.id === playerId);
-      if (!player) return cb({ ok: false, error: "Player not found" });
-      if (g.gameState.currentPlayerId !== playerId)
-        return cb({ ok: false, error: "Not your turn" });
-
-      const role = player.role;
-
-      switch (role?.name) {
-        case "Marchand":
-          player.gold += 1;
-          break;
-        case "Architecte":
-          const drawnCards = g.gameState.deck.splice(0, 2);
-          player.hand.push(...drawnCards);
-          break;
-        case "Roi":
-          g.gameState.crownHolderId = player.id;
-          break;
-      }
-
-      io.to(gameId).emit("gameState", g.gameState);
-      cb({ ok: true, message: `Tour de ${player.name}` });
-    });
-
-    socket.on("playerAction", ({ gameId, playerId, action, actionDetail = '', cardToKeep, playerTargeted, cardToExchange }, cb) => {
+    socket.on("playerAction", ({ gameId, playerId, action, actionDetail = '', targetRole = '', cardToKeep, playerTargeted, cardToExchange }, cb) => {
+      console.log('playerAction', action, actionDetail, targetRole);
       const g = games.get(gameId);
       if (!g) return cb({ ok: false, error: "Game not found" });
       const player = g.gameState.players.find((p) => p.id === playerId);
@@ -424,31 +376,33 @@ app.prepare().then(() => {
       if (g.gameState.currentPlayerId !== playerId)
         return cb({ ok: false, error: "Not your turn" });
 
-      console.log(`🧩 Action de ${player.name}: ${action} ${actionDetail} ${cardToKeep}`);
 
       switch (action) {
         case "takeGold":
           player.gold += 2;
           io.to(gameId).emit("gameState", g.gameState);
           break;
-
         case "drawCards":
-          const drawn = g.gameState.deck.splice(0, 2);
-          let kept: Building | undefined = undefined;
-          if (cardToKeep) {
-            kept = drawn.find((c) => c.id === cardToKeep);
-          } else {
-            kept = drawn[0];
+          {
+            const drawn = g.gameState.deck.splice(0, 2);
+            let kept: Building | undefined = undefined;
+            if (cardToKeep) {
+              kept = drawn.find((c) => c.id === cardToKeep);
+            } else {
+              kept = drawn[0];
+            }
+            if (!kept) return cb({ ok: false, error: "Card to keep not found" });
+            player.hand.push(kept);
+            g.gameState.discard.push(...drawn.filter((c) => c.id !== kept?.id));
+            io.to(gameId).emit("gameState", g.gameState);
+            break;
           }
-          if (!kept) return cb({ ok: false, error: "Card to keep not found" });
-          player.hand.push(kept);
-          g.gameState.discard.push(...drawn.filter((c) => c.id !== kept?.id));
-          io.to(gameId).emit("gameState", g.gameState);
-          break;
 
-        case "build":
-          // vérifier que la carte est en main et qu'il a l'or
-          const card = player.hand.find((c) => c.id === cardToKeep);
+        case "build": {
+          const card = player.hand.find((c) => c.id === cardToKeep.id);
+          console.log(player.city);
+          console.log(player.hand);
+          console.log(player.gold);
           if (!card) return cb({ ok: false, error: "Card not in hand" });
           if (player.gold < card.cost)
             return cb({ ok: false, error: "Not enough gold" });
@@ -456,18 +410,30 @@ app.prepare().then(() => {
           player.gold -= card.cost;
           player.city.push(card);
           player.hand = player.hand.filter((c) => c.id !== card.id);
+
+          const currentIndex = g.gameState.players.findIndex(
+            (p) => p.id === player.id
+          );
+
+          const nextIndex = (currentIndex + 1) % g.gameState.players.length;
+          g.gameState.currentPlayerId = g.gameState.players[nextIndex].id;
+
           io.to(gameId).emit("gameState", g.gameState);
+
+          cb({ ok: true });
           break;
+        }
 
         case "roleSpecial":
+          console.log(actionDetail)
           switch (actionDetail) {
             case "Assassin": {
-              const targetRole = cb?.targetRole;
-              const targetPlayer = g.gameState.players.find(p => p.role === targetRole);
+              const targetPlayer = g.gameState.players.find(p => p.role?.name === targetRole);
+              console.log(targetPlayer)
               if (targetPlayer) {
                 targetPlayer.isAlive = false;
-                io.to(gameId).emit("log", `${player.name} a assassiné le ${targetRole} !`);
               }
+              io.to(gameId).emit("log", `${player.name} a assassiné le ${targetRole} !`);
               break;
             }
 
@@ -494,7 +460,7 @@ app.prepare().then(() => {
               }
               break;
             }
-            case  "swapDeck": {
+            case "swapDeck": {
               // Échanger certaines cartes contre la pioche
               const newCards = g.gameState.deck.splice(0, cardToExchange.length);
               cardToExchange.forEach((cid: string) => {
@@ -567,7 +533,9 @@ app.prepare().then(() => {
 
             default:
               return cb({ ok: false, error: "Unknown role special" });
-        }
+          }
+          break;
+
         default:
           return cb({ ok: false, error: "Unknown action" });
       }
@@ -575,7 +543,6 @@ app.prepare().then(() => {
       io.to(gameId).emit("gameState", g.gameState);
       cb({ ok: true });
     });
-
 
 
     socket.on("endTurn", ({ gameId, playerId }, cb) => {

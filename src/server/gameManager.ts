@@ -22,7 +22,7 @@ export interface GameState {
   currentRole?: Role;
   rolesOrder?: string[];
   rolesPool: Role[];
-  gameStep?: "roleSelection" | "playerTurn" = "roleSelection";
+  gameStep: "roleSelection" | "playerTurn";
   crownHolderId?: PlayerId;
 }
 

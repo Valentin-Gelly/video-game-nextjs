@@ -15,7 +15,7 @@ export default function GameCard({
   handleBuildCard,
   isCondotiere,
   onDestroyHandler
-}: {
+}: Readonly<{
   id: number;
   name: string;
   description: string | undefined;
@@ -29,7 +29,7 @@ export default function GameCard({
   handleBuildCard?: () => void;
   isCondotiere?: boolean;
   onDestroyHandler?: () => void;
-}) {
+}>) {
   const { top, bottom } = backgroundColors;
 
   const onBuildClick = (e: React.MouseEvent) => {

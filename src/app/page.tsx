@@ -1,8 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
+import { GlobalContext } from "@/context/globalContext";
+import { useContext } from "react";
 
 export default function Home() {
+  const { token, setToken, idUser, setIdUser } = useContext(GlobalContext);
+
   return (
     <main className="flex items-center justify-center w-full">
       <section className="w-full space-y-8  mt-[20vh] sm:max-w-7xl px-4 sm:px-0">
@@ -48,8 +53,15 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Bouton principal */}
-        <div className="text-center">
+        {!token ? (
+          <div className="text-center">
+            <Link href="/sign-in"
+              className="inline-block w-[50%] px-6 py-3 rounded-xl font-semibold text-white shadow-lg text-lg transition-transform duration-300 hover:scale-105"
+              style={{
+                background: "linear-gradient(90deg, #4B4E6D, #7D5B3A)",
+              }}>Connexion</Link>
+          </div>
+        ) : <div className="text-center">
           <Link
             href="/game/lobby"
             className="inline-block w-[50%] px-6 py-3 rounded-xl font-semibold text-white shadow-lg text-lg transition-transform duration-300 hover:scale-105"
@@ -60,7 +72,10 @@ export default function Home() {
             Se connecter à une partie
           </Link>
         </div>
+        }
       </section>
+      {/* Bouton principal */}
+
     </main>
   );
 }

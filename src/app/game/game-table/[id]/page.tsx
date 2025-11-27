@@ -10,6 +10,8 @@ import { socket } from "@/server/socket";
 import { GlobalContext } from "@/context/globalContext";
 import { GameState, Role, Building, Player } from "@/server/gameManager";
 import React from "react";
+import ReactDOMServer from "react-dom/server";
+import BuildPopup from "@/app/component/buildPopup";
 
 export default function GamePage({
   params,
@@ -25,12 +27,15 @@ export default function GamePage({
   const [isLobbyOpen, setIsLobbyOpen] = useState(true);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameState, setGameState] = useState<GameState>();
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [selectedRole, setSelectedRole] = useState<Role>();
+  const [turnStatus, setTurnStatus] = useState<string>('');
+  const [isBuildPopupOpen, setBuildPopupOpen] = useState(false);
   const joinedRef = useRef(false);
   const isHost = useRef(searchParams.get("isHost") === "true");
   const logs = useRef<string[]>([]);
 
   useEffect(() => {
+    console.log('changement id, router');
     setGameId(id);
     if (!id) {
       console.log("🔴 gameId est indéfini");
@@ -46,13 +51,19 @@ export default function GamePage({
   }, [id, router]);
 
   useEffect(() => {
+    if (turnStatus === "buildingCard") {
+      setBuildPopupOpen(true);
+    }
+  }, [turnStatus]);
+
+  useEffect(() => {
+    console.log('changement gameId, userName, isHost.current', !gameId || !userName);
     // On ne fait rien tant que gameId ou userName ne sont pas prêts
     if (!gameId || !userName) return;
 
     // Si déjà rejoint, on sort
     if (joinedRef.current) return;
 
-    console.log("🔹 Tentative de rejoindre la partie :", gameId);
     joinedRef.current = true;
 
     socket.emit("joinGame", { gameId, playerName: userName, isHost }, (res) => {
@@ -74,6 +85,66 @@ export default function GamePage({
       }
     });
   }, [gameId, userName, isHost]);
+
+  useEffect(() => {
+    switch (turnStatus) {
+      case 'buildingCard':
+        {
+          const player = gameState?.players.find(p => p.id === socket.id);
+          if (!player?.hand?.length) {
+            Swal.fire("Aucune carte à construire !");
+            return;
+          }
+          break;
+        }
+      case 'takeGoldOrDraw':
+        Swal.fire({
+          title: "Il vous faut maintenant jouer votre tour",
+          showCancelButton: false,
+          showConfirmButton: false,
+          html: `
+          <button id="takeGold" class="swal2-confirm swal2-styled">Prendre 2 pièces</button>
+          <button id="drawCards" class="swal2-deny swal2-styled">Piocher 2 cartes</button>
+          `,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          didOpen: () => {
+            const takeGoldBtn = Swal.getPopup()?.querySelector('#takeGold');
+            const drawCardsBtn = Swal.getPopup()?.querySelector('#drawCards');
+            takeGoldBtn?.addEventListener('click', () => {
+              socket.emit("playerAction", {
+                gameId,
+                playerId: socket.id,
+                action: "takeGold"
+              }, (res) => {
+                if (res.ok) {
+                  Swal.close();
+                  setTurnStatus('buildingCard');
+                  console.log('j ai choisie l or');
+                }
+              });
+              Swal.close();
+            });
+            drawCardsBtn?.addEventListener('click', () => {
+              socket.emit("playerAction", {
+                gameId,
+                playerId: socket.id,
+                action: "drawCards"
+              }, (res) => {
+                if (res.ok) {
+                  Swal.close();
+                  setTurnStatus('buildingCard');
+                  console.log('j ai choisie les cartes');
+                }
+                Swal.close();
+              });
+            });
+          }
+        });
+        break;
+    }
+
+  }, [turnStatus])
 
   socket.on("updatePlayers", (res) => {
     console.log("Mise à jour des joueurs :", res.players);
@@ -146,9 +217,38 @@ export default function GamePage({
     setIsLobbyOpen(false);
   });
 
-  socket.on("gameState", (res) => {
-    setGameState(res);
-  });
+  useEffect(() => {
+    const handleGameState = (res) => {
+      if (!res) return;
+      if (res.gameState) return; // garde-fou inutile à vérifier si nécessaire
+      console.log("🌀 Nouveau gameState :", res);
+      setGameState(res);
+    };
+
+    socket.on("gameState", handleGameState);
+    return () => socket.off("gameState", handleGameState);
+  }, []);
+
+  // --- Déclenche handlePlayTurn une fois que tout est prêt ---
+  useEffect(() => {
+    if (!gameState) return;
+
+    // Trouve le rôle du joueur si non encore sélectionné
+    const myRole =
+      selectedRole ||
+      gameState.players.find((p) => p.id === socket.id)?.role ||
+      null;
+
+    if (!myRole) {
+      console.warn("⚠️ Aucun rôle trouvé pour le joueur au moment du tour");
+      return;
+    }
+
+    // Si la partie est à l’étape du tour du joueur
+    if (gameState.gameStep === "playerTurn" && turnStatus == '') {
+      handlePlayTurn(myRole);
+    }
+  }, [gameState, selectedRole]);
 
   // 🔹 Fonction pour démarrer la partie (uniquement hôte)
   const handleStartGame = () => {
@@ -178,11 +278,9 @@ export default function GamePage({
 
   const handlePlayCard = (card: Building) => {
     console.log("Jouer la carte :", card);
-    const player = gameState?.players.find((p: any) => p.id === idUser);
-    if (!player) return;
     socket.emit(
       "playerAction",
-      { gameId, idUser, action: "build", cardToKeep: card },
+      { gameId, playerId: socket.id, action: "build", cardToKeep: card },
       (res: any) => {
         if (!res.ok) Swal.fire("Erreur", res.error, "error");
       }
@@ -192,182 +290,236 @@ export default function GamePage({
   const handleEndTurn = () => {
     socket.emit("endTurn", { gameId, idUser }, (res: any) => {
       if (!res.ok) Swal.fire("Erreur", res.error, "error");
-      setSelectedRole(null);
+      setSelectedRole(undefined);
+      console.log("Tour terminé, rôle réinitialisé");
     });
   };
 
-  const handlePlayTurn = () => {
-    if (gameState?.currentPlayerId !== socket.id && selectedRole) return;
-    Swal.fire({
-      icon: "info",
-      title: "C'est à votre tour de jouer !",
-      showConfirmButton: false,
-      timer: 1500,
-    });
-    console.log("Rôle sélectionné pour l'action spéciale :", role);
-    if (role === "Assassin") {
+  const handlePlayTurn = (role: Role) => {
+    if (gameState?.currentPlayerId === socket.id && selectedRole) {
       Swal.fire({
-        title: "Choisissez un rôle à assassiner",
-        input: "select",
-        inputOptions:
-          gameState?.rolesPool.reduce((options: any, r: Role) => {
-            options[r.name] = r.name;
-            return options;
-          }, {}) || {},
-        inputPlaceholder: "Sélectionnez un rôle",
-        showCancelButton: true,
-        inputValidator: (value) => {
-          return new Promise((resolve) => {
-            if (value) {
-              resolve("");
-              socket.emit(
-                "playerAction",
-                {
-                  gameId,
-                  playerId: socket.id,
-                  roleSpecial: "assassinate",
-                  targetRole: value,
-                },
-                (res: any) => {
-                  if (!res.ok) Swal.fire("Erreur", res.error, "error");
-                }
-              );
-            } else {
-              resolve("Vous devez choisir un rôle à assassiner.");
-            }
-          });
-        },
+        icon: "info",
+        title: "C'est à votre tour de jouer !",
+        showConfirmButton: false,
+        timer: 1500,
       });
-    } else if (role === "Magicien") {
-      Swal.fire({
-        title: "Choisissez une action spéciale",
-        input: "select",
-        inputOptions: {
-          ÉchangerMain: "Échanger votre main avec un autre joueur",
-          PrendreCartes: "Prendre 2 cartes de la pioche",
-        },
-        inputPlaceholder: "Sélectionnez une action",
-        showCancelButton: true,
-        inputValidator: (value) => {
-          return new Promise((resolve) => {
-            if (value) {
-              if (value === "ÉchangerMain") {
-                Swal.fire({
-                  title: "Choisissez un joueur avec qui échanger votre main",
-                  input: "select",
-                  inputOptions:
-                    gameState?.players.reduce((options: any, p) => {
-                      if (p.id !== socket.id) options[p.id] = p.name;
-                      return options;
-                    }, {}) || {},
-                  inputPlaceholder: "Sélectionnez un joueur",
-                  showCancelButton: false,
-                  inputValidator: (playerValue) => {
-                    return new Promise((resolve) => {
-                      resolve("");
-                      socket.emit(
-                        "playerAction",
-                        {
-                          gameId,
-                          playerId: socket.id,
-                          roleSpecial: "swpaHand",
-                          playerTargeted: playerValue,
-                        },
-                        (res: any) => {
-                          if (!res.ok) Swal.fire("Erreur", res.error, "error");
-                        }
-                      );
-                    });
-                  },
-                });
-              } else if (value === "PrendreCartes") {
+      if (selectedRole?.name === "Assassin") {
+        Swal.fire({
+          icon: "info",
+          title: "C'est à votre tour de jouer !",
+          showConfirmButton: false,
+          timer: 1500,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+        }).then(() => {
+          Swal.fire({
+            title: "Choisissez un rôle à assassiner",
+            input: "select",
+            inputOptions:
+              gameState?.rolesPool.reduce((options: any, r: Role) => {
+                options[r.name] = r.name;
+                return options;
+              }, {}) || {},
+            inputPlaceholder: "Sélectionnez un rôle",
+            showCancelButton: true,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            inputValidator: (value) => {
+              if (!value) {
+                return "Vous devez choisir un rôle à assassiner.";
+              }
+              return null;
+            },
+            preConfirm: (value) => {
+              return new Promise<void>((resolve, reject) => {
                 socket.emit(
                   "playerAction",
-                  { gameId, playerId: socket.id, roleSpecial: "swapDeck" },
+                  {
+                    gameId,
+                    playerId: socket.id,
+                    action: "roleSpecial",
+                    actionDetail: "Assassin",
+                    targetRole: value,
+                  },
                   (res: any) => {
-                    if (!res.ok) Swal.fire("Erreur", res.error, "error");
+                    if (!res.ok) {
+                      Swal.showValidationMessage(res.error);
+                      reject();
+                    } else {
+                      setTurnStatus("takeGoldOrDraw");
+                      resolve();
+                    }
                   }
                 );
-              }
-              resolve("");
-            } else {
-              resolve("Vous devez choisir une action spéciale.");
-            }
+              });
+            },
           });
-        },
-      });
-    } else if (role === "Voleur") {
-      Swal.fire({
-        title: "Choisissez un rôle à voler",
-        input: "select",
-        inputOptions:
-          gameState?.rolesPool.reduce((options: any, r: Role) => {
-            options[r.name] = r.name;
-            return options;
-          }, {}) || {},
-        inputPlaceholder: "Sélectionnez un rôle",
-        showCancelButton: true,
-        inputValidator: (value) => {
-          return new Promise((resolve) => {
-            if (value) {
-              resolve("");
-              socket.emit(
-                "playerAction",
-                {
-                  gameId,
-                  playerId: socket.id,
-                  roleSpecial: "Voleur",
-                  targetRole: value,
-                },
-                (res: any) => {
-                  if (!res.ok) Swal.fire("Erreur", res.error, "error");
+        })
+      } else if (selectedRole?.name === "Magicien") {
+        Swal.fire({
+          title: "Choisissez une action spéciale",
+          input: "select",
+          inputOptions: {
+            ÉchangerMain: "Échanger votre main avec un autre joueur",
+            PrendreCartes: "Prendre 2 cartes de la pioche",
+          },
+          inputPlaceholder: "Sélectionnez une action",
+          showCancelButton: true,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          inputValidator: (value) => {
+            return new Promise((resolve) => {
+              if (value) {
+                if (value === "ÉchangerMain") {
+                  Swal.fire({
+                    title: "Choisissez un joueur avec qui échanger votre main",
+                    input: "select",
+                    inputOptions:
+                      gameState?.players.reduce((options: any, p) => {
+                        if (p.id !== socket.id) options[p.id] = p.name;
+                        return options;
+                      }, {}) || {},
+                    inputPlaceholder: "Sélectionnez un joueur",
+                    showCancelButton: false,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    inputValidator: (playerValue) => {
+                      return new Promise((resolve) => {
+                        resolve("");
+                        socket.emit(
+                          "playerAction",
+                          {
+                            gameId,
+                            playerId: socket.id,
+                            actionDetail: "swpaHand",
+                            playerTargeted: playerValue,
+                          },
+                          (res: any) => {
+                            if (!res.ok) Swal.fire("Erreur", res.error, "error");
+                          }
+                        );
+                      });
+                    },
+                  });
+                } else if (value === "PrendreCartes") {
+                  socket.emit(
+                    "playerAction",
+                    { gameId, playerId: socket.id, roleSpecial: "swapDeck" },
+                    (res: any) => {
+                      if (!res.ok) Swal.fire("Erreur", res.error, "error");
+                    }
+                  );
                 }
-              );
-            } else {
-              resolve("Vous devez choisir un rôle à voler.");
+                resolve("");
+              } else {
+                resolve("Vous devez choisir une action spéciale.");
+              }
+            });
+          },
+        });
+      } else if (selectedRole?.name === "Voleur") {
+        Swal.fire({
+          title: "Choisissez un rôle à voler",
+          input: "select",
+          inputOptions:
+            gameState?.rolesPool.reduce((options: any, r: Role) => {
+              options[r.name] = r.name;
+              return options;
+            }, {}) || {},
+          inputPlaceholder: "Sélectionnez un rôle",
+          showCancelButton: true,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          inputValidator: (value) => {
+            if (!value) {
+              return "Vous devez choisir un rôle à assassiner.";
             }
-          });
-        },
-      });
-    } else if (role === "Marchand") {
-      socket.emit(
-        "playerAction",
-        {
-          gameId,
-          playerId: socket.id,
-          action: "roleSpecial",
-          actionDetail: "Marchand",
-        },
-        (res: any) => {
-          if (!res.ok) Swal.fire("Erreur", res.error, "error");
-        }
-      );
-    } else if (role === "Architecte") {
-      socket.emit(
-        "playerAction",
-        {
-          gameId,
-          playerId: socket.id,
-          action: "roleSpecial",
-          actionDetail: "Architecte",
-        },
-        (res: any) => {
-          if (!res.ok) Swal.fire("Erreur", res.error, "error");
-        }
-      );
-    } else if (role === "Roi") {
-      socket.emit(
-        "playerAction",
-        {
-          gameId,
-          playerId: socket.id,
-          action: "roleSpecial",
-          actionDetail: "Roi",
-        },
-        (res: any) => {
-          if (!res.ok) Swal.fire("Erreur", res.error, "error");
-        }
-      );
+            return null;
+          },
+          preConfirm: (value) => {
+            return new Promise<void>((resolve, reject) => {
+              if (value) {
+                socket.emit(
+                  "playerAction",
+                  {
+                    gameId,
+                    action: "roleSpecial",
+                    playerId: socket.id,
+                    actionDetail: "Voleur",
+                    targetRole: value,
+                  },
+                  (res: any) => {
+                    if (!res.ok) {
+                      Swal.showValidationMessage(res.error);
+                      reject();
+                    }
+                    else {
+                      setTurnStatus("takeGoldOrDraw");
+                      resolve();
+                    }
+                  }
+                );
+              } else {
+                reject();
+              }
+            });
+          },
+        });
+      } else if (selectedRole?.name === "Marchand") {
+        socket.emit(
+          "playerAction",
+          {
+            gameId,
+            playerId: socket.id,
+            action: "roleSpecial",
+            actionDetail: "Marchand",
+          },
+          (res: any) => {
+            if (!res.ok) {
+              Swal.showValidationMessage(res.error);
+            }
+            else {
+              setTurnStatus("takeGoldOrDraw");
+            }
+          }
+        );
+      } else if (selectedRole?.name === "Architecte") {
+        socket.emit(
+          "playerAction",
+          {
+            gameId,
+            playerId: socket.id,
+            action: "roleSpecial",
+            actionDetail: "Architecte",
+          },
+          (res: any) => {
+            if (!res.ok) {
+              Swal.showValidationMessage(res.error);
+            }
+            else {
+              setTurnStatus("takeGoldOrDraw");
+            }
+          }
+        );
+      } else if (selectedRole?.name === "Roi") {
+        socket.emit(
+          "playerAction",
+          {
+            gameId,
+            playerId: socket.id,
+            action: "roleSpecial",
+            actionDetail: "Roi",
+          },
+          (res: any) => {
+            if (!res.ok) {
+              Swal.showValidationMessage(res.error);
+            }
+            else {
+              setTurnStatus("takeGoldOrDraw");
+            }
+          }
+        );
+      }
     }
   };
 
@@ -463,7 +615,7 @@ export default function GamePage({
             </ul>
 
             <div className="flex justify-end gap-4">
-              {isHost && (
+              {isHost.current && (
                 <button
                   onClick={handleStartGame}
                   className="btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A]"
@@ -472,7 +624,7 @@ export default function GamePage({
                   Lancer la partie
                 </button>
               )}
-              {isHost && (
+              {isHost.current && (
                 <button
                   onClick={() => closeGame()}
                   className="btn btn-ghost border border-[#A8D8B9]"
@@ -480,7 +632,7 @@ export default function GamePage({
                   Fermer la partie
                 </button>
               )}
-              {!isHost && (
+              {!isHost.current && (
                 <button
                   onClick={() => leaveGame(idUser!)}
                   className="btn btn-ghost border border-[#A8D8B9]"
@@ -517,6 +669,16 @@ export default function GamePage({
         )}
       {!isLobbyOpen && gameStarted && (
         <>
+          <BuildPopup
+            isOpen={isBuildPopupOpen}
+            onClose={() => setBuildPopupOpen(false)}
+            gameState={gameState}
+            socket={socket}
+            handlePlayCard={handlePlayCard}
+            getColorGradient={getColorGradient}
+            getBuildingRole={getBuildingRole}
+          />
+
           <div
             id="gameSpace"
             className="w-full h-[75vh] bg-[#C2B280]/20 flex mt-[5vh]"
@@ -726,28 +888,6 @@ export default function GamePage({
                         backgroundColors={getColorGradient(card.color)}
                         isPlayed={false}
                         type={getBuildingRole(card.color)}
-                        isPlayable={gameState?.currentPlayerId === socket.id}
-                        canBeBuilded={
-                          card.cost <=
-                          gameState?.players?.find((p) => p.id === socket.id)
-                            ?.gold!
-                        }
-                        handleBuildCard={() => handlePlayCard(card)}
-                        onDestroyHandler={() => {
-                          socket.emit(
-                            "playerAction",
-                            {
-                              gameId,
-                              playerId: socket.id,
-                              roleSpecial: "roleSpecial",
-                              role: "Condotiere",
-                            },
-                            (res: any) => {
-                              if (!res.ok)
-                                Swal.fire("Erreur", res.error, "error");
-                            }
-                          );
-                        }}
                       />
                     ))
                 ) : (
@@ -788,15 +928,15 @@ export default function GamePage({
             </div>
             {gameState?.players?.find((p) => p.id === socket.id)?.id ===
               gameState?.currentPlayerId && (
-              <div className="flex flex-col">
-                <button
-                  onClick={handleEndTurn}
-                  className="btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] mb-2"
-                >
-                  Terminer mon tour
-                </button>
-              </div>
-            )}
+                <div className="flex flex-col">
+                  <button
+                    onClick={handleEndTurn}
+                    className="btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] mb-2"
+                  >
+                    Terminer mon tour
+                  </button>
+                </div>
+              )}
             <div>
               Liste des actions :
               <div className="h-40 w-64 overflow-y-auto bg-white/80 rounded-lg p-2 border border-[#A8D8B9]">

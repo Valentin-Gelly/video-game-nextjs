@@ -24,7 +24,19 @@ export default function Header() {
     >
 
       {!token ? (
-        <Link href="/sign-in">Connexion</Link>
+        <>
+          <Link href="/">
+            <Image
+              src="/logo.png"
+              alt="Cita de l'or"
+              width={350}
+              height={40}
+              priority
+              className="object-contain "
+            />
+          </Link>
+          <Link href="/sign-in">Connexion</Link>
+        </>
       ) : null}
 
       {token && pathname === "/game/game-table" ? (
