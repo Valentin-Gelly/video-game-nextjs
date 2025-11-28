@@ -8,7 +8,7 @@ export default function BuildPopup({ isOpen, onClose, gameState, socket, handleP
   const player = gameState?.players?.find((p) => p.id === socket.id);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+    <div className="fixed inset-0 backdrop-blur-xs flex justify-center items-center z-50">
       <div className="bg-white rounded-xl shadow-lg p-6 w-11/12 max-w-3xl max-h-[90vh] overflow-y-auto">
 
         {/* TITRE */}

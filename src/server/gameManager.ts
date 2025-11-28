@@ -20,10 +20,11 @@ export interface GameState {
   phase: string;
   currentPlayerId?: PlayerId;
   currentRole?: Role;
-  rolesOrder?: string[];
+  rolesOrder: string[];
   rolesPool: Role[];
   gameStep: "roleSelection" | "playerTurn";
   crownHolderId?: PlayerId;
+  stolenPlayerId?: PlayerId;
 }
 
 export interface Role {

@@ -60,7 +60,7 @@ export default function Lobby() {
       });
       return;
     }
-
+    setIsLoading(true);
     socket.emit(
       "createGame",
       { gameName, description },
@@ -71,6 +71,7 @@ export default function Lobby() {
             title: "Erreur",
             text: res.error || "Impossible de créer la partie.",
           });
+          setIsLoading(false);
           return;
         }
 
@@ -158,13 +159,11 @@ export default function Lobby() {
                 <button
                   type="button"
                   disabled={isLoading}
-                  className={`btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] transition-all ${
-                    isLoading ? "opacity-70 cursor-not-allowed" : ""
-                  }`}
+                  className="btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] transition-all"
                   onClick={handleCreateGame}
                 >
                   {isLoading ? (
-                    <span className="loading loading-spinner loading-sm"></span>
+                    "Création en cours..."
                   ) : (
                     "Créer la partie"
                   )}

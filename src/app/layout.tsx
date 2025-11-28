@@ -21,7 +21,7 @@ export default function RootLayout({
           className={`--font-geist-sans --font-geist-mono antialiased bg-[#F5F3F0]`}
         >
           <Header></Header>
-          <main className="min-h-screen bg-[#C2B280] text-[#0F172A]  w-full">
+          <main className="bg-[#C2B280] text-[#0F172A]  w-full">
             {children}
           </main>
         </body>

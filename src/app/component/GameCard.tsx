@@ -84,7 +84,7 @@ export default function GameCard({
       className={
         "card group relative overflow-hidden " +
         (isPlayed
-          ? "h-12 w-24"
+          ? "h-12 w-32"
           : "transform translate-y-1/4 transition-all duration-300 hover:-translate-y-0 hover:scale-110 hover:z-20 h-52 w-40 rounded-[10%] flex flex-col justify-end p-4 ") +
         (className ?? "")
       }
@@ -96,7 +96,7 @@ export default function GameCard({
       {/* Contenu principal masqué par défaut et visible au survol */}
       <div className="absolute inset-0 flex flex-col justify-between p-4 duration-300 z-10 text-white">
         <div>
-          <h2 className="text-lg font-bold mb-1">{name}</h2>
+          <h2 className="text-lg font-bold mb-1 text-center">{name}</h2>
           {description && !isPlayed && <p className="text-xs">{description}</p>}
           {isPlayed ? (
             ""

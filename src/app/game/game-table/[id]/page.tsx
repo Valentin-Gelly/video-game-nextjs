@@ -11,7 +11,7 @@ import { GlobalContext } from "@/context/globalContext";
 import { GameState, Role, Building, Player } from "@/server/gameManager";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
-import BuildPopup from "@/app/component/buildPopup";
+import BuildPopup from "@/app/component/BuildPopup";
 
 export default function GamePage({
   params,
@@ -248,13 +248,13 @@ export default function GamePage({
     socket.on("gameState", handleGameState);
     setpageLoaded(true);
   }, []);
-const handleGameState = (res) => {
+  const handleGameState = (res) => {
     if (!res) return;
-    if (res.gameState) return; 
+    if (res.gameState) return;
     console.log("🌀 Nouveau gameState :", res);
     console.log(gameState?.gameStep === "roleSelection",
-        !selectedRole ,
-        gameState?.currentPlayerId == socket.id)
+      !selectedRole,
+      gameState?.currentPlayerId == socket.id)
     setGameState(res);
   };
   useEffect(() => {
@@ -326,6 +326,24 @@ const handleGameState = (res) => {
       const player = gameState?.players.find((p) => p.id === socket.id);
       return player?.isAlive !== false;
     };
+    const isStool = () => {
+      const player = gameState?.players.find((p) => p.id === socket.id);
+      if (gameState?.stolenPlayerId === player?.id) {
+        socket.emit("hasBeenStolen", { gameId, playerId: socket.id }, (res: any) => {
+          if (!res.ok) Swal.fire("Erreur", res.error, "error");
+        });
+        return true;
+      }
+      return false;
+    };
+    if (gameState?.currentPlayerId === socket.id && selectedRole && !isStool()) {
+      Swal.fire({
+        icon: "info",
+        title: "Vous n'avez plus d'argent, le voleur vous  choisie.",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+    }
     if (gameState?.currentPlayerId === socket.id && selectedRole && isAlive()) {
       Swal.fire({
         icon: "info",
@@ -390,7 +408,7 @@ const handleGameState = (res) => {
           title: "Choisissez une action spéciale",
           input: "select",
           inputOptions: {
-            ÉchangerMain: "Échanger votre main avec un autre joueur",
+            changeHand: "Échanger votre main avec un autre joueur",
             PrendreCartes: "Prendre 2 cartes de la pioche",
           },
           inputPlaceholder: "Sélectionnez une action",
@@ -400,7 +418,7 @@ const handleGameState = (res) => {
           inputValidator: (value) => {
             return new Promise((resolve) => {
               if (value) {
-                if (value === "ÉchangerMain") {
+                if (value === "changeHand") {
                   Swal.fire({
                     title: "Choisissez un joueur avec qui échanger votre main",
                     input: "select",
@@ -421,11 +439,15 @@ const handleGameState = (res) => {
                           {
                             gameId,
                             playerId: socket.id,
-                            actionDetail: "swpaHand",
+                            action: "roleSpecial",
+                            actionDetail: "swapHand",
                             playerTargeted: playerValue,
                           },
                           (res: any) => {
                             if (!res.ok) Swal.fire("Erreur", res.error, "error");
+                            else {
+                              setTurnStatus("takeGoldOrDraw");
+                            }
                           }
                         );
                       });
@@ -434,9 +456,12 @@ const handleGameState = (res) => {
                 } else if (value === "PrendreCartes") {
                   socket.emit(
                     "playerAction",
-                    { gameId, playerId: socket.id, roleSpecial: "swapDeck" },
+                    { gameId, playerId: socket.id, action: "roleSpecial", actionDetail: "swapDeck"},
                     (res: any) => {
                       if (!res.ok) Swal.fire("Erreur", res.error, "error");
+                      else {
+                        setTurnStatus("takeGoldOrDraw");
+                      }
                     }
                   );
                 }
@@ -462,7 +487,7 @@ const handleGameState = (res) => {
           allowEscapeKey: false,
           inputValidator: (value) => {
             if (!value) {
-              return "Vous devez choisir un rôle à assassiner.";
+              return "Vous devez choisir un rôle à Voler.";
             }
             return null;
           },
@@ -503,6 +528,24 @@ const handleGameState = (res) => {
             playerId: socket.id,
             action: "roleSpecial",
             actionDetail: "Marchand",
+          },
+          (res: any) => {
+            if (!res.ok) {
+              Swal.showValidationMessage(res.error);
+            }
+            else {
+              setTurnStatus("takeGoldOrDraw");
+            }
+          }
+        );
+      } else if (selectedRole?.name === "Évêque" && isAlive()) {
+        socket.emit(
+          "playerAction",
+          {
+            gameId,
+            playerId: socket.id,
+            action: "roleSpecial",
+            actionDetail: "Évêque",
           },
           (res: any) => {
             if (!res.ok) {
@@ -632,7 +675,7 @@ const handleGameState = (res) => {
   };
 
   return (
-    <main className="min-h-screen  bg-[#C2B280]/20 overflow-hidden">
+    <main className="h-[88vh] mt-[12vh] bg-[#C2B280]/20 overflow-hidden">
       {isLobbyOpen && (
         <dialog open className="modal">
           <div className="modal-box bg-white rounded-2xl shadow-lg border border-[#A8D8B9] text-[#4B4E6D]">
@@ -784,9 +827,7 @@ const handleGameState = (res) => {
                 ))}
             </div>
 
-            {/* Colonne centrale */}
-            <div className="flex flex-col justify-between items-center flex-end space-y-6 w-1/2 ">
-              {/* Rôle en cours */}
+            <div className="flex flex-col justify-around items-center flex-end w-1/2 ">
               {gameState?.currentRole && (
                 <div>
                   <h2 className="text-white font-bold mb-2 text-center">
@@ -802,6 +843,13 @@ const handleGameState = (res) => {
                       console.log("Rôle en cours cliqué");
                     }}
                   />
+                </div>
+              )}
+              {!gameState?.currentRole && (
+                <div>
+                  <h2 className="text-white font-bold mb-2 text-center">
+                    En attente du prochain rôle...
+                  </h2>
                 </div>
               )}
               {/* Joueur principal */}
