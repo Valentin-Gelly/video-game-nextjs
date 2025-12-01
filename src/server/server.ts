@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import next from "next";
 import { Server } from "socket.io";
 import { v4 as uuidv4 } from "uuid";
+import { saveGame } from "@/app/component/Database";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
@@ -244,9 +245,9 @@ app.prepare().then(() => {
         return cb?.({ ok: true, playerId: existingPlayer.id, reconnect: true, gameState: g.gameState });
       }
 
-      // Sinon, création normale
       const player: Player = {
         id: socket.id,
+        idUser: data.idUser,
         name: data.playerName || `Player-${socket.id.slice(0, 4)}`,
         gold: 2,
         hand: [],
@@ -276,8 +277,10 @@ app.prepare().then(() => {
 
     socket.on("gameList", (cb) => {
       try {
-        const gameList = Array.from(games.values());
-        cb({ ok: true, gameList });
+        const waitingPlayerGameList = Array.from(games.values()).filter(
+          (g) => g.game.state === "WAITING"
+        );
+        cb({ ok: true, waitingPlayerGameList });
       } catch (err) {
         console.error("Erreur création de partie :", err);
         cb({ ok: false, error: "Erreur lors de la création de la partie." });
@@ -353,7 +356,7 @@ app.prepare().then(() => {
         }
         g.gameState.currentPlayerId = firstPlayer.id;
         io.to(gameId).emit("log", `${firstPlayer.name} commence le tour avec le rôle ${firstPlayer.role!.name} !`)
-
+        io.to(gameId).emit("endRoleSelection");
         io.to(gameId).emit("gameState", g.gameState);
         io.to(gameId).emit("log", `Tous les joueurs ont choisi leurs rôles !`);
         return cb({ ok: true, role, message: "All roles chosen" });
@@ -380,8 +383,8 @@ app.prepare().then(() => {
       cb({ ok: true });
     });
 
-    socket.on("playerAction", ({ gameId, playerId, action, actionDetail = '', targetRole = '', cardToKeep, playerTargeted, cardToExchange }, cb) => {
-      console.log('playerAction', action, actionDetail, targetRole);
+    socket.on("playerAction", ({ gameId, playerId, action, actionDetail = '', targetRole = '', cardToKeep, playerTargeted, targetCard }, cb) => {
+      console.log('playerAction', action, actionDetail, targetRole, cardToKeep, playerTargeted, targetCard);
       const g = games.get(gameId);
       if (!g) return cb({ ok: false, error: "Game not found" });
       const player = g.gameState.players.find((p) => p.id === playerId);
@@ -432,6 +435,17 @@ app.prepare().then(() => {
           } else {
             g.gameState.currentPlayerId = g.gameState.players[nextIndex].id;
           }
+
+          if (player.city.length >= 2) {
+            g.gameState.phase = "ENDED";
+            g.gameState.gameStep = "ENDED";
+            g.game.state = "FINISHED";
+            g.game.ranking = computeGameResults(g.gameState);
+            console.log('Game ended, ranking:', g.game.ranking);
+            io.to(gameId).emit("gameEnded", g.game);
+            saveGame(g.game);
+          }
+
           io.to(gameId).emit("gameState", g.gameState);
 
           cb({ ok: true });
@@ -448,6 +462,8 @@ app.prepare().then(() => {
                 targetPlayer.isAlive = false;
               }
               io.to(gameId).emit("log", `${player.name} a assassiné le ${targetRole} !`);
+              io.to(gameId).emit("gameState", g.gameState);
+              io.to(gameId).emit("announce", `${player.name} a assassiné le ${targetRole} !`);
               break;
             }
 
@@ -455,6 +471,8 @@ app.prepare().then(() => {
               const targetRole = cb?.targetRole;
               const target = g.gameState.players.find(p => p.role === targetRole && p.isAlive);
               g.gameState.stolenPlayerId = target?.id;
+              io.to(gameId).emit("gameState", g.gameState);
+              io.to(gameId).emit("announce", `${player.name} a volé le ${targetRole} !`);
               break;
             }
 
@@ -473,6 +491,7 @@ app.prepare().then(() => {
                 });
                 io.to(gameId).emit("log", `${player.name} a échangé sa main avec ${target.name}`);
                 io.to(gameId).emit("gameState", g.gameState);
+                io.to(gameId).emit("announce", `${player.name} a échangé sa main avec ${target.name}`);
               }
               break;
             }
@@ -489,6 +508,7 @@ app.prepare().then(() => {
               });
               io.to(gameId).emit("log", `${player.name} a échangé des cartes avec la pioche`);
               io.to(gameId).emit("gameState", g.gameState);
+              io.to(gameId).emit("announce", `${player.name} a échangé des cartes avec la pioche`);
               break;
             }
 
@@ -525,15 +545,22 @@ app.prepare().then(() => {
               io.to(gameId).emit("gameState", g.gameState);
               break;
             }
+            case "Condottiere_gold": {
+              const bonus = player.city.filter(c => c.color === "Rouge").length;
+              player.gold += bonus;
+              io.to(gameId).emit("log", `${player.name} reçoit ${bonus} or pour ses quartiers militaires`);
+              io.to(gameId).emit("gameState", g.gameState);
+              break;
+            }
 
-            case "Condottiere": {
-              const { targetPlayerId, buildingId } = cb || {};
-              const target = g.gameState.players.find(p => p.id === targetPlayerId);
+            case "Condottiere_destroy": {
+              const buildingId = targetCard
+              const target = g.gameState.players.find(p => p.id === playerTargeted.id);
               if (!target) return cb({ ok: false, error: "Target not found" });
               if (target.role?.name === "Évêque")
                 return cb({ ok: false, error: "Cannot destroy bishop's building" });
 
-              const building = target.city.find(c => c.id === buildingId);
+              const building = target.city.find(c => c.id === buildingId.id);
               if (!building) return cb({ ok: false, error: "Building not found" });
 
               const cost = Math.max(0, building.cost - 1);
@@ -549,6 +576,7 @@ app.prepare().then(() => {
 
               io.to(gameId).emit("log", `${player.name} détruit ${target.name} (${building.name}) pour ${cost} or`);
               io.to(gameId).emit("gameState", g.gameState);
+              io.to(gameId).emit("announce", `${player.name} détruit ${target.name} (${building.name}) pour ${cost} or`);
               break;
             }
 
@@ -617,6 +645,7 @@ app.prepare().then(() => {
       }
       g.gameState.currentPlayerId = nextPlayer.id;
       io.to(gameId).emit("gameState", g.gameState);
+      io.to(gameId).emit("nextPlayer", { nextPlayerId: nextPlayer.id, role: nextPlayer.role });
       cb({ ok: true });
     });
 
@@ -704,4 +733,58 @@ function setNewRound(g: { game: Game; gameState: GameState; }) {
   g.gameState.currentPlayerId = g.gameState.crownHolderId;
   g.gameState.currentRole = undefined;
   return g;
+}
+
+function computeGameResults(game: GameState) {
+  const COLORS = ["bleu", "rouge", "jaune", "vert", "violet"];
+
+  const playersResults = game.players.map((player) => {
+    let basePoints = 0;
+
+    // 1️⃣ Somme des valeurs de la ville
+    for (const card of player.city) {
+      if (card.name === "Dracoport") {
+        basePoints += 8; // effet spécial
+      } else {
+        basePoints += card.cost;
+      }
+    }
+
+    // 2️⃣ Bonus couleurs complètes
+    const colorsInCity = new Set(player.city.map((c) => c.color));
+    const hasAllColors = COLORS.every((c) => colorsInCity.has(c));
+
+    let bonus = 0;
+    if (hasAllColors) bonus += 3;
+
+    // 3️⃣ Bonus achèvement (si 8 quartiers)
+    if (player.city.length >= 8) {
+      bonus += 4; // premier joueur à compléter → géré plus bas
+    }
+
+    return {
+      id: player.idUser,
+      name: player.name,
+      points: basePoints + bonus,
+      basePoints,
+      bonus,
+      citySize: player.city.length,
+    };
+  });
+
+  const playersWhoFinished = playersResults.filter(p => p.citySize >= 8);
+
+  if (playersWhoFinished.length > 0) {
+    const firstFinisherId = game.crownHolderId;
+    const firstFinisher = playersResults.find(p => p.id === firstFinisherId);
+
+    if (firstFinisher) {
+      firstFinisher.points += 2; // +2 (en plus des +4)
+      firstFinisher.bonus += 2;
+    }
+  }
+
+  const ranking = [...playersResults].sort((a, b) => b.points - a.points);
+
+  return ranking;
 }

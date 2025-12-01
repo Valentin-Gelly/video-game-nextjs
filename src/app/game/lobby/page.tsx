@@ -18,16 +18,16 @@ export default function Lobby() {
   const [gameName, setGameName] = useState("");
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { userName } = useContext(GlobalContext);
+  const { userName, idUser } = useContext(GlobalContext);
 
   useEffect(() => {
     socket.emit(
       "gameList",
       (res: {
         ok: boolean;
-        gameList: { game: Game; gameState: GameState }[];
+        waitingPlayerGameList: [];
       }) => {
-        setGames(res.gameList);
+        setGames(res.waitingPlayerGameList);
         console.log("gameList", res);
       }
     );
@@ -63,7 +63,7 @@ export default function Lobby() {
     setIsLoading(true);
     socket.emit(
       "createGame",
-      { gameName, description },
+      { gameName, description, createdBy: idUser },
       (res: { ok: boolean; gameId?: string; error?: string }) => {
         if (!res.ok) {
           Swal.fire({
@@ -215,13 +215,13 @@ export default function Lobby() {
                     <span
                       className={
                         c.game.state === "WAITING"
-                          ? "text-yellow-600"
-                          : "text-green-600"
+                          ? "text-green-600 font-semibold"
+                          : "text-red-600"
                       }
                     >
-                      {c.game.state === "WAITING"
-                        ? "En attente de joueurs"
-                        : "En cours"}
+                      {c.game.state === "IN_PROGRESS" && "En cours"}
+                      {c.game.state === "WAITING" && "En attente de joueurs"}
+                      {c.game.state === "FINISHED" && "Terminée"}
                     </span>
                   </p>
                 </div>

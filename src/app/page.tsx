@@ -9,7 +9,7 @@ export default function Home() {
   const { token, setToken, idUser, setIdUser } = useContext(GlobalContext);
 
   return (
-    <main className="flex items-center justify-center w-full">
+    <main className="flex items-center justify-center w-full ">
       <section className="w-full space-y-8  mt-[20vh] sm:max-w-7xl px-4 sm:px-0">
         <div
           className="grid gap-6 bg-white/60 backdrop-blur-xl p-8 sm:p-10 rounded-3xl shadow-xl border"

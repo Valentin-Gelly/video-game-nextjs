@@ -4,6 +4,7 @@ type PlayerId = string;
 
 export interface Player {
   id: PlayerId;
+  idUser: string;
   name: string;
   gold: number;
   hand: Building[];
@@ -22,7 +23,7 @@ export interface GameState {
   currentRole?: Role;
   rolesOrder: string[];
   rolesPool: Role[];
-  gameStep: "roleSelection" | "playerTurn";
+  gameStep: "roleSelection" | "playerTurn" | "ENDED";
   crownHolderId?: PlayerId;
   stolenPlayerId?: PlayerId;
 }
@@ -54,27 +55,18 @@ export interface Game {
   state: "WAITING" | "IN_PROGRESS" | "FINISHED";
   createdAt: Date;
   createdBy: string;
+  ranking?: {
+    id: string;
+    name: string;
+    points: number;
+    basePoints: number;
+    bonus: number;
+    citySize: number;
+  }[];
 }
 
 class GameManager {
   private games: Map<string, Game> = new Map();
-
-  createGame(name: string, description: string, createdBy: string): Game {
-    const game: Game = {
-      id: uuid(),
-      code: Math.random().toString(36).substring(2, 8),
-      name,
-      description,
-      players: [],
-      deck: [],
-      roles: [],
-      state: "WAITING",
-      createdAt: new Date(),
-      createdBy: createdBy,
-    };
-    this.games.set(game.id, game);
-    return game;
-  }
 
   getGameById(id: string) {
     return this.games.get(id);

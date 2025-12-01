@@ -9,27 +9,62 @@ datasource db {
 }
 
 model User {
-  id            Int         @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   lastname      String
   firstname     String
   username      String
-  email         String      @unique
-  emailVerified Boolean     @default(false)
-  verifiedToken String?     @unique
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  verifiedToken String?  @unique
   password      String
-  players       Player[]
+
+  // Historique individuel
   gameInfos     GameInfos[]
-  Game          Game[]
+
+  // Games créés
+  gamesCreated  Game[] @relation("CreatedGames")
+
+  // Games où il est joueur (relation joueurs)
+  gamesPlayed   Game[] @relation("GamePlayers")
 
   @@map("user")
+}
+
+model Game {
+  id          String       @id
+  status      String
+  currentTurn Int?
+
+  // Liste des joueurs
+  players     User[]       @relation("GamePlayers")
+
+  // Classement final
+  infos       GameInfos[]
+
+  createdAt   DateTime     @default(now())
+  description String?
+
+  // Créateur de la game
+  createdBy   User         @relation("CreatedGames", fields: [createdById], references: [id])
+  createdById Int
+
+  gameCode    String       @unique
+  gameName    String       @default("New Game")
+
+  @@map("game")
 }
 
 model GameInfos {
   id        Int      @id @default(autoincrement())
   userId    Int
-  score     Int
-  result    Int
   gameId    String
+
+  // Score final
+  score     Int
+
+  // 1 = gagnant, 2 = second, 3 = troisième…
+  position  Int      
+
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
@@ -38,66 +73,12 @@ model GameInfos {
   @@map("game_infos")
 }
 
-model Player {
-  id     Int            @id @default(autoincrement())
-  name   String
-  gold   Int            @default(0)
-  city   BuildingCard[] @relation("PlayerCity") // Bâtiments construits
-  hand   BuildingCard[] @relation("PlayerHand") // Cartes en main
-  game   Game           @relation(fields: [gameId], references: [id])
-  gameId String
-
-  user   User? @relation(fields: [userId], references: [id])
-  userId Int?
-
-  @@map("player")
-}
-
-model Game {
-  id          String         @id
-  status      String
-  currentTurn Int?
-  players     Player[]
-  deck        BuildingCard[]
-  infos       GameInfos[]
-  description String?
-  createdAt   DateTime       @default(now())
-  createdBy   User           @relation(fields: [createdById], references: [id])
-  createdById Int
-  gameCode    String         @unique
-  gameName    String         @default("New Game")
-
-  @@map("game")
-}
-
-model BuildingCard {
-  id           Int     @id @default(autoincrement())
-  status       String  @default("deck") // deck, hand, city, discard
-  // Relation to Player city
-  playerCity   Player? @relation("PlayerCity", fields: [playerCityId], references: [id])
-  playerCityId Int?
-
-  // Relation to Player hand
-  playerHand   Player? @relation("PlayerHand", fields: [playerHandId], references: [id])
-  playerHandId Int?
-
-  // Relation to Game deck
-  game       Game?     @relation(fields: [gameId], references: [id])
-  gameId     String?
-  Building   Building? @relation(fields: [buildingId], references: [id])
-  buildingId Int?
-}
-
 model Building {
   id          Int    @id @default(autoincrement())
   name        String
   cost        Int
   color       String
   description String
-
-  buildingCard BuildingCard[]
-
-  @@map("building")
 }
 
 model RoleCard {

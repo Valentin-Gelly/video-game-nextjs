@@ -8,11 +8,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
 import { socket } from "@/server/socket";
 import { GlobalContext } from "@/context/globalContext";
-import { GameState, Role, Building, Player } from "@/server/gameManager";
+import { GameState, Role, Building, Player, Game } from "@/server/gameManager";
 import React from "react";
-import ReactDOMServer from "react-dom/server";
 import BuildPopup from "@/app/component/BuildPopup";
-
+import { showEndGamePopup } from "@/app/component/RankingPopup";
+ 
 export default function GamePage({
   params,
 }: {
@@ -29,6 +29,9 @@ export default function GamePage({
   const [gameState, setGameState] = useState<GameState>();
   const [selectedRole, setSelectedRole] = useState<Role>();
   const [turnStatus, setTurnStatus] = useState<string>('');
+  const [game, setGame] = useState<Game>();
+  console.log('turnStatus', turnStatus);
+  const [isCondotierDestroyBuilding, setIsCondotierDestroyBuilding] = useState<boolean>(false);
   const [isBuildPopupOpen, setBuildPopupOpen] = useState(false);
   const joinedRef = useRef(false);
   const isHost = useRef(searchParams.get("isHost") === "true");
@@ -90,22 +93,14 @@ export default function GamePage({
   }, [id, router]);
 
   useEffect(() => {
-    if (turnStatus === "buildingCard") {
-      setBuildPopupOpen(true);
-    }
-  }, [turnStatus]);
-
-  useEffect(() => {
-    console.log('changement gameId, userName, isHost.current', !gameId || !userName);
-    // On ne fait rien tant que gameId ou userName ne sont pas prêts
+    console.log('changement gameId, userName, isHost.current', !gameId || !userName, idUser);
     if (!gameId || !userName) return;
 
-    // Si déjà rejoint, on sort
     if (joinedRef.current) return;
 
     joinedRef.current = true;
 
-    socket.emit("joinGame", { gameId, playerName: userName, isHost }, (res) => {
+    socket.emit("joinGame", { gameId, playerName: userName, idUser: idUser,  isHost }, (res) => {
       if (!res.ok) {
         console.error("Erreur joinGame:", res.error);
         return;
@@ -123,17 +118,14 @@ export default function GamePage({
         }
       }
     });
-  }, [gameId, userName, isHost]);
+  }, [gameId, userName, isHost, idUser]);
 
   useEffect(() => {
+    console.log('turnStatus changed', turnStatus);
     switch (turnStatus) {
       case 'buildingCard':
         {
-          const player = gameState?.players.find(p => p.id === socket.id);
-          if (!player?.hand?.length) {
-            Swal.fire("Aucune carte à construire !");
-            return;
-          }
+          setBuildPopupOpen(true);
           break;
         }
       case 'takeGoldOrDraw':
@@ -159,7 +151,6 @@ export default function GamePage({
                 if (res.ok) {
                   Swal.close();
                   setTurnStatus('buildingCard');
-                  console.log('j ai choisie l or');
                 }
               });
               Swal.close();
@@ -173,7 +164,6 @@ export default function GamePage({
                 if (res.ok) {
                   Swal.close();
                   setTurnStatus('buildingCard');
-                  console.log('j ai choisie les cartes');
                 }
                 Swal.close();
               });
@@ -218,16 +208,6 @@ export default function GamePage({
       setIsLobbyOpen(false);
     });
 
-    socket.on("gameEnded", () => {
-      Swal.fire({
-        icon: "info",
-        title: "La partie est terminée !",
-        showConfirmButton: false,
-        timer: 1500,
-      });
-      router.push("/game/lobby");
-    });
-
     socket.on("roundEnded", (res) => {
       setGameState(res);
       setSelectedRole(undefined);
@@ -245,12 +225,37 @@ export default function GamePage({
       });
     });
 
+    socket.on("announce", (message) => {
+      Swal.fire({
+        icon: "info",
+        title: message,
+        showConfirmButton: false,
+        timer: 2000,
+      });
+    });
+
+    socket.on("gameEnded", (res) => {
+      setGame(res);
+      console.log("gameEnded received :", res);
+      Swal.fire({
+        icon: "info",
+        title: "La partie est terminée !",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+
+      showEndGamePopup(res?.ranking);
+    });
+
     socket.on("gameState", handleGameState);
     setpageLoaded(true);
   }, []);
+
+
   const handleGameState = (res) => {
     if (!res) return;
     if (res.gameState) return;
+    if (res.phase === "ENDED") return;
     console.log("🌀 Nouveau gameState :", res);
     console.log(gameState?.gameStep === "roleSelection",
       !selectedRole,
@@ -271,7 +276,8 @@ export default function GamePage({
     }
 
     // Si la partie est à l’étape du tour du joueur
-    if (gameState.gameStep === "playerTurn" && turnStatus == '') {
+    if (gameState.gameStep === "playerTurn" && turnStatus == '' &&  gameState.currentPlayerId === socket.id) {
+      console.log("C'est votre tour de jouer avec le rôle :", myRole);
       handlePlayTurn(myRole);
     }
   }, [gameState, selectedRole]);
@@ -296,7 +302,6 @@ export default function GamePage({
     socket.emit("chooseRole", { gameId, role }, (res: any) => {
       if (!res.ok) Swal.fire("Erreur", res.error, "error");
       else {
-        console.log("Rôle choisi :", role);
         setSelectedRole(role);
       }
     });
@@ -317,7 +322,6 @@ export default function GamePage({
     socket.emit("endTurn", { gameId, playerId: socket.id }, (res: any) => {
       if (!res.ok) Swal.fire("Erreur", res.error, "error");
       setSelectedRole(undefined);
-      console.log("Tour terminé, rôle réinitialisé");
     });
   };
 
@@ -365,7 +369,7 @@ export default function GamePage({
             input: "select",
             inputOptions:
               gameState?.rolesPool.reduce((options: any, r: Role) => {
-                options[r.name] = r.name;
+                if (r.name !== "Assassin") { options[r.name] = r.name; }
                 return options;
               }, {}) || {},
             inputPlaceholder: "Sélectionnez un rôle",
@@ -456,7 +460,7 @@ export default function GamePage({
                 } else if (value === "PrendreCartes") {
                   socket.emit(
                     "playerAction",
-                    { gameId, playerId: socket.id, action: "roleSpecial", actionDetail: "swapDeck"},
+                    { gameId, playerId: socket.id, action: "roleSpecial", actionDetail: "swapDeck" },
                     (res: any) => {
                       if (!res.ok) Swal.fire("Erreur", res.error, "error");
                       else {
@@ -478,7 +482,8 @@ export default function GamePage({
           input: "select",
           inputOptions:
             gameState?.rolesPool.reduce((options: any, r: Role) => {
-              options[r.name] = r.name;
+              if (r.name !== "Voleur" && r.name !== "Assassin")
+                options[r.name] = r.name;
               return options;
             }, {}) || {},
           inputPlaceholder: "Sélectionnez un rôle",
@@ -592,6 +597,21 @@ export default function GamePage({
             }
           }
         );
+      } else if (selectedRole?.name === "Condottiere" && isAlive()) {
+        Swal.fire({
+          icon: "info",
+          title: "Souhaitez-vous détruire un bâtiment ?",
+          showCancelButton: true,
+          confirmButtonText: "Oui",
+          cancelButtonText: "Non",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            console.log('end turn condottiere no destroy building sdfsdf');
+          } else {
+            setIsCondotierDestroyBuilding(true);
+            console.log('end turn condottiere no destroy building');
+          }
+        }); 
       }
     } else if (gameState?.currentPlayerId === socket.id && selectedRole && !isAlive()) {
       Swal.fire({
@@ -675,7 +695,7 @@ export default function GamePage({
   };
 
   return (
-    <main className="h-[88vh] mt-[12vh] bg-[#C2B280]/20 overflow-hidden">
+    <main className="pt-[12vh] bg-[#C2B280]/20 overflow-hidden">
       {isLobbyOpen && (
         <dialog open className="modal">
           <div className="modal-box bg-white rounded-2xl shadow-lg border border-[#A8D8B9] text-[#4B4E6D]">
@@ -788,14 +808,25 @@ export default function GamePage({
                           type={getBuildingRole(card.color)}
                           isPlayable={false}
                           canBeBuilded={false}
-                          isCondotiere={p.role?.name === "Condottiere"}
+                          isCondottiere={selectedRole?.name === "Condottiere" && p.role?.name !== "Évêque"}
                           onDestroyHandler={() => {
                             socket.emit(
-                              "destroyBuilding",
-                              { gameId, playerId: socket.id, card },
+                              "playerAction",
+                              {
+                                gameId,
+                                playerId: socket.id,
+                                action: "roleSpecial",
+                                actionDetail: "Condottiere_destroy",
+                                playerTargeted: p,
+                                targetCard: card,
+                              },
                               (res: any) => {
-                                if (!res.ok)
-                                  Swal.fire("Erreur", res.error, "error");
+                                if (res.ok) {
+                                  setIsCondotierDestroyBuilding(false);
+                                  setTurnStatus("takeGoldOrDraw");
+                                } else {
+                                  Swal.showValidationMessage(res.error);
+                                }
                               }
                             );
                           }}
@@ -870,20 +901,6 @@ export default function GamePage({
                         type={getBuildingRole(card.color)}
                         isPlayable={true}
                         canBeBuilded={true}
-                        isCondotiere={
-                          gameState?.players?.find((p) => p.id === socket.id)
-                            ?.role?.name === "Condottiere"
-                        }
-                        onDestroyHandler={() => {
-                          socket.emit(
-                            "destroyBuilding",
-                            { gameId, playerId: socket.id, card },
-                            (res: any) => {
-                              if (!res.ok)
-                                Swal.fire("Erreur", res.error, "error");
-                            }
-                          );
-                        }}
                       />
                     ))}
                 </div>
@@ -913,7 +930,28 @@ export default function GamePage({
                           type={getBuildingRole(card.color)}
                           isPlayable={false}
                           canBeBuilded={false}
-                          isCondotiere={p.role?.name === "Condottiere"}
+                          isCondottiere={p.role?.name === "Condottiere"}
+                          onDestroyHandler={() => {
+                            socket.emit(
+                              "playerAction",
+                              {
+                                gameId,
+                                playerId: socket.id,
+                                action: "roleSpecial",
+                                actionDetail: "Condottiere_destroy",
+                                playerTargeted: p,
+                                targetCard: card,
+                              },
+                              (res: any) => {
+                                console.log(res.ok);
+                                if (res.ok) {
+                                  setTurnStatus("takeGoldOrDraw");
+                                } else {
+                                  Swal.showValidationMessage(res.error);
+                                }
+                              }
+                            );
+                          }}
                         />
                       ))}
                     </div>
@@ -1017,6 +1055,19 @@ export default function GamePage({
             {gameState?.players?.find((p) => p.id === socket.id)?.id ===
               gameState?.currentPlayerId && (
                 <div className="flex flex-col">
+                  {
+                    isCondotierDestroyBuilding && selectedRole?.name === "Condottiere" && (
+                      <button
+                        onClick={() => {
+                          setIsCondotierDestroyBuilding(false);
+                          setTurnStatus("takeGoldOrDraw");
+                        }}
+                        className="btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] mb-2"
+                      >
+                        Ne pas détruire de bâtiment
+                      </button>
+                    )
+                  }
                   <button
                     onClick={handleEndTurn}
                     className="btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] mb-2"

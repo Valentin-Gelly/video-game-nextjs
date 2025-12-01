@@ -13,7 +13,7 @@ export default function GameCard({
   isPlayable,
   canBeBuilded,
   handleBuildCard,
-  isCondotiere,
+  isCondottiere,
   onDestroyHandler
 }: Readonly<{
   id: number;
@@ -27,7 +27,7 @@ export default function GameCard({
   isPlayable?: boolean;
   canBeBuilded?: boolean;
   handleBuildCard?: () => void;
-  isCondotiere?: boolean;
+  isCondottiere?: boolean;
   onDestroyHandler?: () => void;
 }>) {
   const { top, bottom } = backgroundColors;
@@ -122,6 +122,7 @@ export default function GameCard({
           <h3 className="font-bold text-lg text-[#4B4E6D]">Batiment {name}</h3>
           <p>Type de batiment : {type}</p>
           <p className="py-4 text-slate-600">{description}</p>
+          <p>prix du batiment {price}</p>
           <div className="modal-action flex justify-end gap-4 mt-6">
             {
               isPlayable ? (
@@ -150,15 +151,16 @@ export default function GameCard({
               ) : null
             }
             {
-              isPlayed && isCondotiere ? (
+              isPlayed && isCondottiere ? (
                 <button
                   type="button"
                   className="btn btn-primary"
                   onClick={(e) => {
-                    onDestroyHandler(e);
+                    e.stopPropagation();
+                    onDestroyHandler?.();
                   }}
                 >
-                  Détruire le batiment
+                  Détruire le batiment (coût { +price - 1} pièces)
                 </button>
               ) : null  
             }

@@ -48,9 +48,11 @@ export const GlobalProvider = ({ children }: GlobalProviderProps) => {
     if (token && userName) {
       sessionStorage.setItem("token", token);
       sessionStorage.setItem("userName", userName);
+      sessionStorage.setItem("idUser", idUser);
     } else if (!token) {
       sessionStorage.removeItem("token");
       sessionStorage.removeItem("userName");
+      sessionStorage.removeItem("idUser");
       setInit(false);
     }
   }, [router, token, userName]);

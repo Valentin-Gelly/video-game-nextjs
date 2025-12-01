@@ -48,6 +48,9 @@ export default function SignUpPage() {
         });
         setToken(res.user.token);
         setUserName(res.user.name);
+        setIdUser(res.user.id);
+        sessionStorage.setItem("token", res.user.token);
+        sessionStorage.setItem("idUser", res.user.id);
         sessionStorage.setItem("userName", res.user.name);
         router.push("/dashboard/user");
       }

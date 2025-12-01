@@ -18,10 +18,10 @@ export default function RootLayout({
     <html lang="fr">
       <GlobalProvider>
         <body
-          className={`--font-geist-sans --font-geist-mono antialiased bg-[#F5F3F0]`}
+          className={`min-h-screen --font-geist-sans --font-geist-mono antialiased bg-[#F5F3F0]`}
         >
           <Header></Header>
-          <main className="bg-[#C2B280] text-[#0F172A]  w-full">
+          <main className="bg-[#C2B280] text-[#0F172A]  w-full  h-screen">
             {children}
           </main>
         </body>
