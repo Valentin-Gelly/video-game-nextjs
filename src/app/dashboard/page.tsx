@@ -91,7 +91,7 @@ export default function GameList() {
                     className="transition-colors duration-200 cursor-pointer"
                     style={{ backgroundColor: "#A8D8B950" }}
                     onClick={() =>
-                      (window.location.href = `/citadelles/partie/${s.id}`)
+                      (window.location.href = `/games/details/${s.gameId}`)
                     }
                     onMouseEnter={(e) =>
                       (e.currentTarget.style.backgroundColor = "#D9DF77")
@@ -114,7 +114,7 @@ export default function GameList() {
                       className="px-6 py-4 text-sm font-semibold"
                       style={{ color: "#7D5B3A" }}
                     >
-                      {s.result === 1 ? "🏆 Victoire" : "💀 Défaite"}
+                      {s.position}ème
                     </td>
                     <td
                       className="px-6 py-4 text-sm font-bold"
@@ -129,11 +129,6 @@ export default function GameList() {
           </table>
         </div>
       </div>
-
-      {/* FOOTER */}
-      <footer className="bg-[#7D5B3A] text-white text-center py-4 text-sm">
-        © 2025 — Si t&apos;as de l&apos;or • Tous droits réservés
-      </footer>
     </div>
   );
 }

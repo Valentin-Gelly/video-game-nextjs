@@ -50,7 +50,7 @@ export function showEndGamePopup(results) {
   }).then((result) => {
     if (result.isConfirmed) {
       if (typeof window !== "undefined") {
-        window.location.href = "/game/lobby";
+        window.location.href = "/games/lobby";
       }
     }
   });

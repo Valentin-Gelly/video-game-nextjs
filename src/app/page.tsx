@@ -63,7 +63,7 @@ export default function Home() {
           </div>
         ) : <div className="text-center">
           <Link
-            href="/game/lobby"
+            href="/games/lobby"
             className="inline-block w-[50%] px-6 py-3 rounded-xl font-semibold text-white shadow-lg text-lg transition-transform duration-300 hover:scale-105"
             style={{
               background: "linear-gradient(90deg, #4B4E6D, #7D5B3A)",

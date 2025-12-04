@@ -85,7 +85,7 @@ export default function Lobby() {
           "my_modal_1"
         ) as HTMLDialogElement;
         modal.close();
-        router.push(`/game/game-table/${gameId}?isHost=true`);
+        router.push(`/games/game-table/${gameId}?isHost=true`);
       }
     );
   }
@@ -93,7 +93,7 @@ export default function Lobby() {
   async function joinGame(gameId?: string) {
     setIsLoading(true);
 
-    router.push(`/game/game-table/${gameId}?isHost=false`);
+    router.push(`/games/game-table/${gameId}?isHost=false`);
   }
 
   return (
@@ -146,6 +146,7 @@ export default function Lobby() {
                 <button
                   type="button"
                   className="btn btn-ghost"
+                  disabled={isLoading}
                   onClick={() => {
                     const modal = document.getElementById(
                       "my_modal_1"
@@ -227,7 +228,7 @@ export default function Lobby() {
                 </div>
                 {c.game.state === "WAITING" && (
                   <Link
-                    href={`/game/game-table/${c.game.id}`}
+                    href={`/games/game-table/${c.game.id}`}
                     onClick={() => joinGame(c.game.id)}
                     className="bg-[#7D5B3A] text-white px-4 py-2 rounded-lg hover:scale-105 transition-transform"
                   >

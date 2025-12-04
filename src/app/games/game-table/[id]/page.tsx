@@ -87,7 +87,7 @@ export default function GamePage({
         showConfirmButton: false,
         timer: 1500,
       });
-      router.push("/game/lobby");
+      router.push("/games/lobby");
       return;
     }
   }, [id, router]);
@@ -190,7 +190,7 @@ export default function GamePage({
         showConfirmButton: false,
         timer: 1500,
       });
-      router.push("/game/lobby");
+      router.push("/games/lobby");
     });
 
     socket.on("endRoleSelection", (res) => {
@@ -632,7 +632,7 @@ export default function GamePage({
       { gameId, playerId: socket.id },
       (res: { ok: boolean; error?: string }) => {
         if (res.ok) {
-          router.push("/game/lobby");
+          router.push("/games/lobby");
           setIsLobbyOpen(false);
           return () => {
             socket.off("joinGame");
@@ -641,7 +641,7 @@ export default function GamePage({
           };
         } else {
           if (res.error === "Game not found") {
-            router.push("/game/lobby");
+            router.push("/games/lobby");
             setIsLobbyOpen(false);
             return () => {
               socket.off("joinGame");
@@ -666,7 +666,7 @@ export default function GamePage({
       { gameId },
       (res: { ok: boolean; error?: string }) => {
         if (res.ok) {
-          router.push("/game/lobby");
+          router.push("/games/lobby");
           setIsLobbyOpen(false);
           return () => {
             socket.off("joinGame");
@@ -675,7 +675,7 @@ export default function GamePage({
           };
         } else {
           if (res.error === "Game not found") {
-            router.push("/game/lobby");
+            router.push("/games/lobby");
             setIsLobbyOpen(false);
             return () => {
               socket.off("joinGame");

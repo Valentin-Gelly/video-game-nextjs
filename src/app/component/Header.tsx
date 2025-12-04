@@ -19,7 +19,7 @@ export default function Header() {
     <header
       className={
         "absolute top-0 left-0 w-full flex items-center justify-between px-8 py-4 bg-white/60 backdrop-blur-xl shadow-md " +
-        (pathname === "/game/game-table" ? "h-4" : "h-[15vh]")
+        (pathname === "/games/game-table" ? "h-4" : "h-[15vh]")
       }
     >
 
@@ -39,7 +39,7 @@ export default function Header() {
         </>
       ) : null}
 
-      {token && pathname === "/game/game-table" ? (
+      {token && pathname === "/games/game-table" ? (
         <div className="flex flex-end items-center space-x-4">
           <Link href="/dashboard/user">Mon profil</Link>
           <button
@@ -55,7 +55,7 @@ export default function Header() {
             className={
               " bg-red-500 text-white rounded-lg hover:bg-red-600 transition" +
                 pathname ==
-                "/game/game-table"
+                "/games/game-table"
                 ? " px-2 py-1 text-sm"
                 : " px-4 py-2"
             }
@@ -65,7 +65,7 @@ export default function Header() {
         </div>
       ) : null}
 
-      {token && pathname !== "/game/game-table" ? (
+      {token && pathname !== "/games/game-table" ? (
         <>
           <Link href="/">
             <Image
@@ -92,7 +92,7 @@ export default function Header() {
               className={
                 " bg-red-500 text-white rounded-lg hover:bg-red-600 transition" +
                   pathname ==
-                  "/game/game-table"
+                  "/games/game-table"
                   ? " px-2 py-1 text-sm"
                   : " px-4 py-2"
               }

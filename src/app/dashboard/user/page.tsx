@@ -92,7 +92,7 @@ export default function Profil() {
                     height={20}
                   />
                   <span className="flex-1 ms-3 whitespace-nowrap">
-                    Sign Out
+                    Se déconnecter
                   </span>
                 </a>
               </li>
