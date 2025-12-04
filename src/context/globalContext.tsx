@@ -8,6 +8,7 @@ import {
   ReactNode,
   Dispatch,
   SetStateAction,
+  useMemo
 } from "react";
 
 interface GlobalContextType {
@@ -32,6 +33,10 @@ export const GlobalProvider = ({ children }: GlobalProviderProps) => {
   const [token, setToken] = useState<string | null>(null);
   const [idUser, setIdUser] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const value = useMemo(
+    () => ({ token, setToken, idUser, setIdUser, userName, setUserName }),
+    [token, setToken, idUser, setIdUser, userName, setUserName]
+  );
 
   useEffect(() => {
     console.log("GlobalContext init:", init);
@@ -45,7 +50,7 @@ export const GlobalProvider = ({ children }: GlobalProviderProps) => {
   }, []);
 
   useEffect(() => {
-    if (token && userName) {
+    if (token && userName && idUser) {
       sessionStorage.setItem("token", token);
       sessionStorage.setItem("userName", userName);
       sessionStorage.setItem("idUser", idUser);
@@ -57,11 +62,5 @@ export const GlobalProvider = ({ children }: GlobalProviderProps) => {
     }
   }, [router, token, userName]);
 
-  return (
-    <GlobalContext.Provider
-      value={{ token, setToken, idUser, setIdUser, userName, setUserName }}
-    >
-      {children}
-    </GlobalContext.Provider>
-  );
+  return <GlobalContext.Provider value={value}>{children}</GlobalContext.Provider>;
 };

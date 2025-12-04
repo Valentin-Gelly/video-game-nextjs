@@ -3,7 +3,7 @@
 import { useContext, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { GlobalContext, GlobalProvider } from "@/context/globalContext";
+import { GlobalContext } from "@/context/globalContext";
 
 interface GameDetails {
   id: string;
@@ -47,7 +47,8 @@ export default function GameDetailsPage() {
   const [gameData, setGameData] = useState<GameResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { idUser } = useContext(GlobalContext);
+  const context = useContext(GlobalContext);
+  const idUser = context?.idUser;
 
   useEffect(() => {
     if (!gameId) return;
@@ -129,6 +130,19 @@ export default function GameDetailsPage() {
     }
   };
 
+  const getBackgroundColor = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return "#FFF4C2";
+      case 2:
+        return "#E4E4E4";
+      case 3:
+        return "#FFD8B2";
+      default:
+        return "#F7F7F7";
+    }
+  };
+
   return (
     <div
       className="min-h-screen p-6 flex justify-center pt-[17vh]"
@@ -191,14 +205,7 @@ export default function GameDetailsPage() {
                 key={player.id}
                 className="rounded-xl p-6 shadow-md"
                 style={{
-                  backgroundColor:
-                    player.rank === 1
-                      ? "#FFF4C2"
-                      : player.rank === 2
-                      ? "#E4E4E4"
-                      : player.rank === 3
-                      ? "#FFD8B2"
-                      : "#F7F7F7",
+                  backgroundColor: getBackgroundColor(player.rank),
                 }}
               >
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -211,9 +218,17 @@ export default function GameDetailsPage() {
                       >
                         #{player.rank}
                       </p>
-                      <p className="text-lg" style={{ color: "#7D5B3A" }}>
-                          {`${player.user.firstname} ${player.user.lastname}`} {+idUser === +player.userId ? "(Vous)" : ""}
-                      </p>
+                      {(() => {
+                        let playerName = player.user
+                          ? `${player.user.firstname} ${player.user.lastname}`
+                          : `Joueur invité #${player.userId}`;
+                        let isYou = idUser && +idUser === +player.userId ? " (Vous)" : "";
+                        return (
+                          <p className="text-lg" style={{ color: "#7D5B3A" }}>
+                            {playerName}{isYou}
+                          </p>
+                        );
+                      })()}
                       {player.user && (
                         <p className="text-sm" style={{ color: "#4B4E6D" }}>
                           @{player.user.username}

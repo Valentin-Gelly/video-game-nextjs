@@ -16,13 +16,15 @@ import { showEndGamePopup } from "@/app/component/RankingPopup";
 export default function GamePage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  readonly params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
   const router = useRouter();
   const [gameId, setGameId] = useState<string | null>(null);
   const searchParams = useSearchParams();
-  const { userName, idUser } = useContext(GlobalContext);
+  const context = useContext(GlobalContext);
+  const idUser = context?.idUser;
+  const userName = context?.userName;
   const [players, setPlayers] = useState<Player[]>([]);
   const [isLobbyOpen, setIsLobbyOpen] = useState(true);
   const [gameStarted, setGameStarted] = useState(false);
@@ -100,7 +102,7 @@ export default function GamePage({
 
     joinedRef.current = true;
 
-    socket.emit("joinGame", { gameId, playerName: userName, idUser: idUser,  isHost }, (res) => {
+    socket.emit("joinGame", { gameId, playerName: userName, idUser: idUser,  isHost }, (res: any) => {
       if (!res.ok) {
         console.error("Erreur joinGame:", res.error);
         return;
@@ -147,7 +149,7 @@ export default function GamePage({
                 gameId,
                 playerId: socket.id,
                 action: "takeGold"
-              }, (res) => {
+              }, (res: any) => {
                 if (res.ok) {
                   Swal.close();
                   setTurnStatus('buildingCard');
@@ -160,7 +162,7 @@ export default function GamePage({
                 gameId,
                 playerId: socket.id,
                 action: "drawCards"
-              }, (res) => {
+              }, (res: any) => {
                 if (res.ok) {
                   Swal.close();
                   setTurnStatus('buildingCard');
@@ -178,7 +180,7 @@ export default function GamePage({
   useEffect(() => {
     if (pageLoaded) return;
 
-    socket.on("updatePlayers", (res) => {
+    socket.on("updatePlayers", (res: any) => {
       console.log("Mise à jour des joueurs :", res.players);
       setPlayers(res.players);
     });
@@ -193,7 +195,7 @@ export default function GamePage({
       router.push("/games/lobby");
     });
 
-    socket.on("endRoleSelection", (res) => {
+    socket.on("endRoleSelection", (res: any) => {
       console.log("Sélection des rôles terminée :", res);
       handlePlayTurn();
     });
@@ -208,7 +210,7 @@ export default function GamePage({
       setIsLobbyOpen(false);
     });
 
-    socket.on("roundEnded", (res) => {
+    socket.on("roundEnded", (res: any) => {
       setGameState(res);
       setSelectedRole(undefined);
       setTurnStatus('');
@@ -234,7 +236,7 @@ export default function GamePage({
       });
     });
 
-    socket.on("gameEnded", (res) => {
+    socket.on("gameEnded", (res: any) => {
       setGame(res);
       console.log("gameEnded received :", res);
       Swal.fire({
@@ -252,7 +254,7 @@ export default function GamePage({
   }, []);
 
 
-  const handleGameState = (res) => {
+  const handleGameState = (res: any) => {
     if (!res) return;
     if (res.gameState) return;
     if (res.phase === "ENDED") return;
@@ -278,7 +280,7 @@ export default function GamePage({
     // Si la partie est à l’étape du tour du joueur
     if (gameState.gameStep === "playerTurn" && turnStatus == '' &&  gameState.currentPlayerId === socket.id) {
       console.log("C'est votre tour de jouer avec le rôle :", myRole);
-      handlePlayTurn(myRole);
+      handlePlayTurn();
     }
   }, [gameState, selectedRole]);
 
@@ -325,7 +327,7 @@ export default function GamePage({
     });
   };
 
-  const handlePlayTurn = (role: Role) => {
+  const handlePlayTurn = () => {
     const isAlive = () => {
       const player = gameState?.players.find((p) => p.id === socket.id);
       return player?.isAlive !== false;

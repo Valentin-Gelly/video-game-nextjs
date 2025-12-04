@@ -3,17 +3,19 @@
 import React, { useContext, useEffect, useState } from "react";
 import { GlobalContext } from "@/context/globalContext";
 
-interface GameInfo {
+interface GameResume {
   id: number;
   score: number;
   result: number;
   createdAt: string;
+  gameId: string;
+  position: number
 }
 
 export default function GameList() {
-  const [scores, setScores] = useState<GameInfo[]>([]);
-  const { token, setToken, setIdUser, idUser } = useContext(GlobalContext);
-  const userId = idUser;
+  const [scores, setScores] = useState<GameResume[]>([]);
+  const context = useContext(GlobalContext);
+  const userId = context?.idUser;
 
   useEffect(() => {
     async function loadScores() {
@@ -91,7 +93,7 @@ export default function GameList() {
                     className="transition-colors duration-200 cursor-pointer"
                     style={{ backgroundColor: "#A8D8B950" }}
                     onClick={() =>
-                      (window.location.href = `/games/details/${s.gameId}`)
+                      (globalThis.location.href = `/games/details/${s.gameId}`)
                     }
                     onMouseEnter={(e) =>
                       (e.currentTarget.style.backgroundColor = "#D9DF77")

@@ -8,11 +8,13 @@ import { GlobalContext } from "@/context/globalContext";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const { token, setToken, setIdUser, idUser, userName, setUserName } =
-    useContext(GlobalContext);
+
+  const ctx = useContext(GlobalContext);
+  if (!ctx) throw new Error("GlobalContext not available");
+  const { setToken, setIdUser, setUserName } = ctx;
   const [isLoading, setIsLoading] = useState(false);
 
-  const onSubmit = async (event) => {
+  const onSubmit = async (event: any) => {
     event.preventDefault();
     setIsLoading(true);
 
@@ -27,8 +29,6 @@ export default function SignUpPage() {
           password: event.target.elements.password.value,
         }),
       }).then((r) => r.json());
-
-      console.log(res);
 
       if (res.error) {
         Swal.fire({
@@ -48,9 +48,9 @@ export default function SignUpPage() {
         });
         setToken(res.user.token);
         setUserName(res.user.name);
-        setIdUser(res.user.id);
+        setIdUser(String(res.user.id));
         sessionStorage.setItem("token", res.user.token);
-        sessionStorage.setItem("idUser", res.user.id);
+        sessionStorage.setItem("idUser", String(res.user.id));
         sessionStorage.setItem("userName", res.user.name);
         router.push("/dashboard/user");
       }

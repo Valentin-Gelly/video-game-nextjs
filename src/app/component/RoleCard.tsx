@@ -6,10 +6,10 @@ export default function RoleCard({
   backgroundColors,
   choiceHandler
 }: {
-  name: string;
-  description: string;
-  backgroundColors: { top: string; bottom: string };
-  choiceHandler: () => void;
+  readonly name?: string;
+  readonly description?: string;
+  readonly backgroundColors: { top: string; bottom: string };
+  readonly choiceHandler?: () => void;
 }) {
   const { top, bottom } = backgroundColors;
   
@@ -25,11 +25,12 @@ export default function RoleCard({
       }}
     >
       {/* Contenu principal masqué par défaut et visible au survol */}
-      <div
-        className="absolute inset-0 flex flex-col justify-between p-4 duration-300 z-10 text-white"
+      <button
+        className="absolute inset-0 flex flex-col justify-between p-4 duration-300 z-10 text-white bg-transparent border-none cursor-pointer"
         onClick={() =>
-          document.getElementById("role_modal_"+name)!.showModal()
+          (document.getElementById("role_modal_"+name) as HTMLDialogElement)?.showModal()
         }
+        aria-label={`Afficher les détails du rôle ${name}`}
       >
         <div className="text-center">
           {description != "" ? (
@@ -45,7 +46,7 @@ export default function RoleCard({
             ""
           )}
         </div>
-      </div>
+      </button>
       <dialog id={idModal} className="modal">
         <div className="modal-box bg-white rounded-2xl shadow-lg border border-[#A8D8B9]">
           <h3 className="font-bold text-lg text-[#4B4E6D]">Role du {name}</h3>

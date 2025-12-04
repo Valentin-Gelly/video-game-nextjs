@@ -1,6 +1,7 @@
+import { Ranking } from "@/server/gameManager";
 import Swal from "sweetalert2";
 
-export function showEndGamePopup(results) {
+export function showEndGamePopup(results: Ranking[]) {
   const htmlContent = `
     <div style="text-align: center;">
       <h2 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem;">

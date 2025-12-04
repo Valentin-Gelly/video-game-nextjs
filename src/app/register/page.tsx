@@ -8,16 +8,20 @@ import Link from "next/link";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { token, setToken, setIdUser } = useContext(GlobalContext);
+  const ctx = useContext(GlobalContext);
+  if (!ctx) throw new Error("GlobalContext not available");
+  const { token} = ctx;
+  
   const [isLoading, setIsLoading] = useState(false);
 
   if (token) {
     router.push("/dashboard/user");
   }
 
-  const onSubmit = async (event) => {
+  const onSubmit = async (event: any) => {
     event.preventDefault();
     console.log(event.target.elements);
+    setIsLoading(true);
     const res = await fetch("/api/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -30,7 +34,6 @@ export default function RegisterPage() {
         username: event.target.elements.username.value,
       }),
     });
-    console.log(res);
     const result = await res.json();
 
     if (res.ok) {
@@ -41,6 +44,7 @@ export default function RegisterPage() {
         showConfirmButton: false,
         timer: 1500,
       });
+      setIsLoading(false);
     } else {
       Swal.fire({
         position: "top-end",
@@ -49,6 +53,7 @@ export default function RegisterPage() {
         showConfirmButton: false,
         timer: 1500,
       });
+      setIsLoading(false);
     }
   };
 

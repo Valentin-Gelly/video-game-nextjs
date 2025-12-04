@@ -55,15 +55,17 @@ export interface Game {
   state: "WAITING" | "IN_PROGRESS" | "FINISHED";
   createdAt: Date;
   createdBy: string;
-  ranking?: {
+  ranking?: Ranking[];
+}
+
+export interface Ranking{
     id: string;
     name: string;
     points: number;
     basePoints: number;
     bonus: number;
     citySize: number;
-  }[];
-}
+  }
 
 class GameManager {
   private games: Map<string, Game> = new Map();
