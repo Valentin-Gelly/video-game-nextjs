@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int     @id @default(autoincrement())
+  lastname      String
+  firstname     String
+  username      String
+  email         String  @unique
+  emailVerified Boolean @default(false)
+  verifiedToken String? @unique
+  password      String
+
+  // Historique individuel
+  gameInfos GameInfos[]
+
+  // Games créés
+  gamesCreated Game[] @relation("CreatedGames")
+
+  // Games où il est joueur (relation joueurs)
+  gamesPlayed Game[] @relation("GamePlayers")
+
+  @@map("user")
+}
+
+model Game {
+  id          String @id
+  status      String
+  currentTurn Int?
+
+  // Liste des joueurs
+  players User[] @relation("GamePlayers")
+
+  // Classement final
+  infos GameInfos[]
+
+  createdAt   DateTime @default(now())
+  description String?
+
+  // Créateur de la game
+  createdBy   User @relation("CreatedGames", fields: [createdById], references: [id])
+  createdById Int
+
+  gameCode String @unique
+  gameName String @default("New Game")
+
+  @@map("game")
+}
+
+model GameInfos {
+  id     Int    @id @default(autoincrement())
+  userId Int
+  gameId String
+
+  // Score final
+  score Int
+
+  // 1 = gagnant, 2 = second, 3 = troisième…
+  position Int
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  game Game @relation(fields: [gameId], references: [id])
+
+  @@map("game_infos")
+}
+
+model Building {
+  id          Int    @id @default(autoincrement())
+  name        String
+  cost        Int
+  color       String
+  description String
+}
+
+model RoleCard {
+  id          Int    @id @default(autoincrement())
+  name        String
+  description String
+  order       Int
+  color       String @default("Blanc")
+
+  @@map("role_card")
+}
