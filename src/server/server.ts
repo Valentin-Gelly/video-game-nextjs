@@ -5,6 +5,7 @@ import next from "next";
 import { Server } from "socket.io";
 import { v4 as uuidv4 } from "uuid";
 import { saveGame } from "@/app/component/Database";
+import {getSocketUrl} from "./socket";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
@@ -127,7 +128,8 @@ async function createGame(
   description: string,
   createdBy: string
 ): Promise<Game> {
-  const res = await fetch(`/api/games/cards`, {
+  // récupérer les cartes via une URL absolue
+  const res = await fetch(`${getSocketUrl()}/api/games/cards`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   });
@@ -139,7 +141,7 @@ async function createGame(
   const cards: Building[] = await res.json();
 
   // Exemple dans une fonction async
-  const resRoles = await fetch(`/api/games/roles`, {
+  const resRoles = await fetch(`${getSocketUrl()}/api/games/roles`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   });

@@ -2,7 +2,7 @@
 import { io } from "socket.io-client";
 
 // ⚙️ Déterminer l'URL du serveur Socket.io selon l'environnement
-const getSocketUrl = () => {
+export const getSocketUrl = () => {
   if (typeof window === "undefined") {
     // Côté serveur
     return "http://localhost:3000";
