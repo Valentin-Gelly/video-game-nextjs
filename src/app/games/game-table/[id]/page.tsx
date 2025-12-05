@@ -1,6 +1,6 @@
 "use client";
 import RoleCard from "@/app/component/RoleCard";
-import BuildPopup from "@/app/component/BuildPopup";
+import BuildPopup from "@/app/component/BuildingBuildPopUp";
 import GameCard from "@/app/component/GameCard";
 import { useEffect, useState, useContext, useRef, use } from "react";
 import Image from "next/image";
