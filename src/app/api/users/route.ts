@@ -2,9 +2,11 @@ import { NextResponse, NextRequest } from "next/server";
 import { PrismaClient } from "@/generated/prisma";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { sendVerificationEmail } from "@/lib/mail";
+import { EmailTemplate } from '@/app/component/EmailTemplate';
+import { Resend } from 'resend';
 
 const prisma = new PrismaClient();
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function GET(request: NextRequest) {
   try {
@@ -53,11 +55,28 @@ export async function POST(req: Request) {
         { error: "Email déjà utilisé" },
         { status: 400 }
       );
-    console.log(email, password, lastname, firstname, username);
+
+
 
     const hashed = await bcrypt.hash(password, 10);
     const token = crypto.randomBytes(32).toString("hex");
     // Créer l'utilisateur **et** sa ligne Stats en même temps
+    
+
+
+    // EmailTemplate returns an HTML string, so send it via `html`
+    const { data, error } = await resend.emails.send({
+      from: "Si t'as de l'or <register@sitasdelor.dev>",
+      to: [email],
+      subject: 'Confirmez votre adresse e-mail',
+      html: EmailTemplate(token),
+    });
+    console.log("test")
+
+    if (error) {
+      return NextResponse.json({ error }, { status: 500 });
+    }
+
     const user = await prisma.user.create({
       data: {
         email: email,
@@ -69,9 +88,6 @@ export async function POST(req: Request) {
         emailVerified: false,
       },
     });
-
-    await sendVerificationEmail(user.email, token);
-
     return NextResponse.json({
       message:
         "Inscription réussie. Vérifiez votre e-mail pour confirmer votre compte.",

@@ -24,6 +24,7 @@ export async function GET(
       include: {
         game: true,
       },
+      orderBy: { createdAt: "desc" },
     });
 
     if (games.length === 0) {

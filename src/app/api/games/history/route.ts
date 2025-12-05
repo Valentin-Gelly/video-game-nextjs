@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
         user: true,
         game: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "asc" },
     });
 
     if (userGameInfos.length === 0) {
