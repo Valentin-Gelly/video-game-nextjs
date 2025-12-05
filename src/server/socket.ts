@@ -1,11 +1,26 @@
 // socket.ts
 import { io } from "socket.io-client";
 
-// ⚙️ URL de ton serveur Node/Express + Socket.io
-// En dev : http://localhost:3000 (même que ton Next.js)
-export const socket = io("http://localhost:3000", {
+// ⚙️ Déterminer l'URL du serveur Socket.io selon l'environnement
+const getSocketUrl = () => {
+  if (typeof window === "undefined") {
+    // Côté serveur
+    return "http://localhost:3000";
+  }
+
+  const protocol = window.location.protocol === "https:" ? "https:" : "http:";
+  const host = window.location.host; // valentingelly.cloud en production, localhost:3000 en dev
+
+  if (host.includes("localhost") || host.includes("127.0.0.1")) {
+    return "http://localhost:3000";
+  }
+
+  return `${protocol}//${host}`;
+};
+
+export const socket = io(getSocketUrl(), {
   autoConnect: true,
-  transports: ["websocket"], // plus rapide et plus fiable
+  transports: ["websocket", "polling"], // Ajouter polling pour plus de compatibilité
 });
 
 socket.on("connect", () => {
