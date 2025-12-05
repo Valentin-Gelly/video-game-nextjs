@@ -3,8 +3,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET!;
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+const JWT_SECRET: string = process.env.JWT_SECRET as string;
+
 
 export async function POST(req: Request) {
   try {
@@ -39,9 +39,14 @@ export async function POST(req: Request) {
 
     if (!JWT_SECRET) throw new Error("JWT_SECRET manquant");
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN,
-    });
+
+    const token = jwt.sign(
+      { email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+
 
     const response = NextResponse.json({
       message: "Connexion réussie",

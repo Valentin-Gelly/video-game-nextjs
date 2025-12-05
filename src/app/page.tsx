@@ -1,12 +1,13 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { GlobalContext } from "@/context/globalContext";
 import { useContext } from "react";
 
 export default function Home() {
-  const { token, setToken, idUser, setIdUser } = useContext(GlobalContext);
+    const ctx = useContext(GlobalContext);
+  if (!ctx) throw new Error("GlobalContext not available");
+  const { token } = ctx;
 
   return (
     <main className="flex items-center justify-center w-full ">

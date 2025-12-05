@@ -18,7 +18,9 @@ export default function Lobby() {
   const [gameName, setGameName] = useState("");
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { userName, idUser } = useContext(GlobalContext);
+  const ctx = useContext(GlobalContext);
+  if (!ctx) throw new Error("GlobalContext not available");
+  const { userName, idUser} = ctx;
 
   useEffect(() => {
     socket.emit(
@@ -105,7 +107,7 @@ export default function Lobby() {
         </h1>
         <button
           className="bg-[#A8D8B9] text-[#4B4E6D] font-semibold px-4 py-2 rounded-xl hover:scale-105 transition-transform"
-          onClick={() => document.getElementById("my_modal_1")!.showModal()}
+          onClick={() => (document.getElementById("my_modal_1") as HTMLDialogElement).showModal()}
         >
           Créer une partie
         </button>

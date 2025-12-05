@@ -1,11 +1,19 @@
 import React from "react";
 import GameCard from "./GameCard";
 
-export default function BuildPopup({ isOpen, onClose, gameState, socket, handlePlayCard, getColorGradient, getBuildingRole }) {
+export default function BuildPopup({ isOpen, onClose, gameState, socket, handlePlayCard, getColorGradient, getBuildingRole }: {
+  readonly isOpen: any,
+  readonly onClose: any,
+  readonly gameState: any,
+  readonly socket: any,
+  readonly handlePlayCard: any,
+  readonly getColorGradient: any,
+  readonly getBuildingRole: any,
+}) {
 
   if (!isOpen) return null; // ← popup invisible si fermée
 
-  const player = gameState?.players?.find((p) => p.id === socket.id);
+  const player = gameState?.players?.find((p: any) => p.id === socket.id);
 
   return (
     <div className="fixed inset-0 backdrop-blur-xs flex justify-center items-center z-50">

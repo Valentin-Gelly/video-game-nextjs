@@ -6,13 +6,12 @@ import Link from "next/link";
 import { GlobalContext } from "@/context/globalContext";
 import { useContext } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { signOut } from "@/lib/auth-client";
-import path from "path";
 
 export default function Header() {
   const router = useRouter();
-  const { token, setToken, idUser, setIdUser } = useContext(GlobalContext);
-
+  const ctx = useContext(GlobalContext);
+  if (!ctx) throw new Error("GlobalContext not available");
+  const { token,setToken, setIdUser} = ctx;
   const pathname = usePathname();
 
   return (

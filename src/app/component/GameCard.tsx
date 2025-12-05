@@ -80,7 +80,8 @@ export default function GameCard({
 
 
   return (
-    <div
+    <button
+      type="button"
       className={
         "card group relative overflow-hidden " +
         (isPlayed
@@ -91,7 +92,17 @@ export default function GameCard({
       style={{
         background: `linear-gradient(to bottom, ${top}, ${bottom})`,
       }}
-      onClick={() => document.getElementById("my_modal_" + id)!.showModal()}
+      onClick={() => {
+        const modal = document.getElementById("my_modal_" + id) as HTMLDialogElement | null;
+        modal?.showModal();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          const modal = document.getElementById("my_modal_" + id) as HTMLDialogElement | null;
+          modal?.showModal();
+        }
+      }}
     >
       {/* Contenu principal masqué par défaut et visible au survol */}
       <div className="absolute inset-0 flex flex-col justify-between p-4 duration-300 z-10 text-white">
@@ -181,6 +192,6 @@ export default function GameCard({
           </div>
         </div>
       </dialog>
-    </div>
+    </button>
   );
 }
