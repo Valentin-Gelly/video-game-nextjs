@@ -11,10 +11,10 @@ export async function verifyToken(req: NextRequest) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: number;
+      email: string;
     };
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
+      where: { email: decoded.email },
     });
 
     if (!user) throw new Error("Utilisateur introuvable");

@@ -127,7 +127,6 @@ async function createGame(
   description: string,
   createdBy: string
 ): Promise<Game> {
-  // récupérer les cartes via une URL absolue
   const res = await fetch(`/api/games/cards`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
