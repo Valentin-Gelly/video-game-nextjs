@@ -1,16 +1,15 @@
 "use client";
-
+import RoleCard from "@/app/component/RoleCard";
+import BuildPopup from "@/app/component/BuildPopup";
 import GameCard from "@/app/component/GameCard";
 import { useEffect, useState, useContext, useRef, use } from "react";
 import Image from "next/image";
-import RoleCard from "@/app/component/RoleCard";
 import { useRouter, useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
 import { socket } from "@/server/socket";
 import { GlobalContext } from "@/context/globalContext";
 import { GameState, Role, Building, Player, Game } from "@/server/gameManager";
 import React from "react";
-import BuildPopup from "../../../component/BuildPopup";
 import { showEndGamePopup } from "@/app/component/RankingPopup";
 export default function GamePage({
   params,
