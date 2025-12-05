@@ -12,7 +12,6 @@ import { GameState, Role, Building, Player, Game } from "@/server/gameManager";
 import React from "react";
 import BuildPopup from "@/app/component/BuildPopup";
 import { showEndGamePopup } from "@/app/component/RankingPopup";
- 
 export default function GamePage({
   params,
 }: {
