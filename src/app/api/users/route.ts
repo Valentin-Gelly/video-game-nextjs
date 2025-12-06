@@ -62,16 +62,13 @@ export async function POST(req: Request) {
     const token = crypto.randomBytes(32).toString("hex");
     // Créer l'utilisateur **et** sa ligne Stats en même temps
     
-
-
     // EmailTemplate returns an HTML string, so send it via `html`
     const { data, error } = await resend.emails.send({
-      from: "Si t'as de l'or <register@sitasdelor.dev>",
+      from: "Si t'as de l'or <register@valentingelly.cloud>",
       to: [email],
       subject: 'Confirmez votre adresse e-mail',
       html: EmailTemplate(token),
     });
-    console.log("test")
 
     if (error) {
       return NextResponse.json({ error }, { status: 500 });
