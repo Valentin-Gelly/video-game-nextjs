@@ -62,10 +62,11 @@ export async function POST(req: Request) {
       name: "token",
       value: token,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60,
+      secure: process.env.NODE_ENV === "production", // HTTPS en production
+      sameSite: "strict", // Plus sécurisé que "lax"
+      maxAge: 7 * 24 * 60 * 60, // 7 jours
       path: "/",
+      domain: process.env.NODE_ENV === "production" ? ".valentingelly.cloud" : undefined, // Ajouter le domaine en production
     });
     return response;
   } catch (error) {

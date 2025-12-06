@@ -3,7 +3,8 @@ import jwt from "jsonwebtoken";
 import { prisma } from "@/lib/prisma";
 
 export async function verifyToken(req: NextRequest) {
-  const token = req.cookies.get("token")?.value ? req.cookies.get("token")?.value : sessionStorage.getItem("token");
+  // Récupérer le token depuis les cookies (côté serveur uniquement)
+  const token = req.cookies.get("token")?.value;
 
   if (!token) {
     throw new Error("Token manquant");
