@@ -20,6 +20,50 @@ const games = new Map<
   }
 >();
 
+// timers for disconnected players: key -> timeout
+const disconnectTimers = new Map<string, NodeJS.Timeout>();
+
+function getPlayerKey(gameId: string, player: { idUser?: string | null; name?: string }) {
+  return `${gameId}:${player.idUser ?? player.name}`;
+}
+
+function startDisconnectTimer(io: any, gameId: string, player: { idUser?: string | null; name?: string }) {
+  const key = getPlayerKey(gameId, player);
+  // clear existing if any
+  if (disconnectTimers.has(key)) {
+    clearTimeout(disconnectTimers.get(key)!);
+  }
+
+  const t = setTimeout(() => {
+    try {
+      const g = games.get(gameId);
+      if (!g) return;
+      console.log(`Player ${player.name} did not reconnect — closing game ${gameId}`);
+      io.to(gameId).emit("gameClosed");
+      // cleanup timers related to this game
+      for (const k of Array.from(disconnectTimers.keys())) {
+        if (k.startsWith(`${gameId}:`)) {
+          clearTimeout(disconnectTimers.get(k)!);
+          disconnectTimers.delete(k);
+        }
+      }
+      games.delete(gameId);
+    } catch (err) {
+      console.error("Error during disconnect timer expiry:", err);
+    }
+  }, 60 * 1000);
+
+  disconnectTimers.set(key, t);
+}
+
+function clearDisconnectTimerByKey(key: string) {
+  const t = disconnectTimers.get(key);
+  if (t) {
+    clearTimeout(t);
+    disconnectTimers.delete(key);
+  }
+}
+
 // Nombre de copies par carte selon Citadelles classique
 const CARD_COPIES: Record<string, number> = {
   // Bleu
@@ -240,9 +284,14 @@ app.prepare().then(() => {
 
       if (existingPlayer) {
         console.log(`🔁 ${data.playerName} se reconnecte`);
+        // clear any pending disconnect timer for this player
+        const key = getPlayerKey(data.gameId, existingPlayer);
+        clearDisconnectTimerByKey(key);
+
         existingPlayer.id = socket.id; // mettre à jour son socket.id
         socket.join(data.gameId);
         io.to(data.gameId).emit("updatePlayers", { players: g.game.players });
+        io.to(data.gameId).emit("playerReconnected", { playerId: existingPlayer.id, playerName: existingPlayer.name });
         return cb?.({ ok: true, playerId: existingPlayer.id, reconnect: true, gameState: g.gameState });
       }
 
@@ -264,6 +313,13 @@ app.prepare().then(() => {
       cb?.({ ok: true, playerId: player.id });
     });
 
+    socket.on("logIn", ({gameId, playerId}, cb) => {
+      const g = games.get(gameId);
+      if (!g) return cb({ ok: true});
+      io.to(`${gameId}`).emit("gameState", g.gameState);
+      io.to(`${gameId}`).emit("gameClosed");
+      cb({ ok: true });
+    });
 
     socket.on('leaveGame', ({ gameId, playerId }, cb) => {
       const g = games.get(gameId);
@@ -452,6 +508,44 @@ app.prepare().then(() => {
           cb({ ok: true });
           break;
         }
+
+        case "discard": {
+          console.log("discard")
+          const card = player.hand.find((c) => c.id === cardToKeep.id);
+          if (!card) return cb({ ok: false, error: "Card not in hand" });
+
+          player.gold += 2;
+          player.hand = player.hand.filter((c) => c.id !== card.id);
+
+          const currentIndex = g.gameState.players.findIndex(
+            (p) => p.id === player.id
+          );
+
+          const nextIndex = (currentIndex + 1);
+          if (nextIndex > g.gameState.players.length - 1) {
+            g.gameState.phase = "endRound";
+            setNewRound(g)
+            io.to(gameId).emit("roundEnded", g.gameState);
+          } else {
+            g.gameState.currentPlayerId = g.gameState.players[nextIndex].id;
+          }
+
+          if (player.city.length >= 2) {
+            g.gameState.phase = "ENDED";
+            g.gameState.gameStep = "ENDED";
+            g.game.state = "FINISHED";
+            g.game.ranking = computeGameResults(g.gameState);
+            console.log('Game ended, ranking:', g.game.ranking);
+            io.to(gameId).emit("gameEnded", g.game);
+            saveGame(g.game);
+          }
+
+          io.to(gameId).emit("gameState", g.gameState);
+
+          cb({ ok: true });
+          break;
+        }
+
 
         case "roleSpecial":
           console.log(actionDetail)
@@ -655,11 +749,6 @@ app.prepare().then(() => {
       const g = games.get(gameId);
       if (!g) return cb({ ok: false, error: "Game not found" });
       cb({ ok: true, state: g.gameState });
-    });
-
-    socket.on("disconnect", () => {
-      console.log("socket disconnected", socket.id);
-      // optionnel : marquer comme déconnecté; ne pas supprimer joueur immédiatement
     });
 
     socket.on('startNextRound', ({ gameId }, cb) => {

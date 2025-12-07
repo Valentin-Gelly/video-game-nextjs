@@ -236,7 +236,6 @@ export default function GamePage({
 
     socket.on("gameEnded", (res: any) => {
       setGame(res);
-      console.log("gameEnded received :", res);
       Swal.fire({
         icon: "info",
         title: "La partie est terminée !",
@@ -318,12 +317,28 @@ export default function GamePage({
     );
   };
 
+  const handleDiscardCard = (card: Building) => {
+    console.log("test")
+    socket.emit(
+      "playerAction",
+      { gameId, playerId: socket.id, action: "discard", cardToKeep: card },
+      (res: any) => {
+        if (!res.ok) Swal.fire("Erreur", res.error, "error");
+      }
+    );
+  };
+
+
   const handleEndTurn = () => {
     socket.emit("endTurn", { gameId, playerId: socket.id }, (res: any) => {
       if (!res.ok) Swal.fire("Erreur", res.error, "error");
       setSelectedRole(undefined);
     });
   };
+  const handleEndGame = () => {
+    socket.emit("endGame", { gameId }, (res: any)=>{})
+    router.push("/lobby")
+  }
 
   const handlePlayTurn = () => {
     const isAlive = () => {
@@ -778,6 +793,7 @@ export default function GamePage({
             gameState={gameState}
             socket={socket}
             handlePlayCard={handlePlayCard}
+            handleDiscard={handleDiscardCard}
             getColorGradient={getColorGradient}
             getBuildingRole={getBuildingRole}
           />
@@ -1074,6 +1090,16 @@ export default function GamePage({
                   >
                     Terminer mon tour
                   </button>
+                  {
+                    isHost && (
+                      <button
+                        onClick={handleEndGame}
+                        className="btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] mb-2"
+                      >
+                        Fermer la partie
+                      </button>
+                    )
+                  }
                 </div>
               )}
             <div>

@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid)
       return NextResponse.json(
-        { error: "Mot de passe incorrect" },
+        { error: "Identifiants ou mot de passe incorrect" },
         { status: 400 }
       );
 

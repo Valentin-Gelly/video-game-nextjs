@@ -4,18 +4,27 @@ import Image from "next/image";
 import GameList from "@/app/dashboard/page";
 import { useState } from "react";
 import UserProfilePage from "@/app/dashboard/user/userProfilePage";
+import { useContext } from "react";
+import { GlobalContext } from "@/context/globalContext";
+import { useRouter } from "next/navigation";
 
 export default function Profil() {
   const [activePage, setActivePage] = useState("profile");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const ctx = useContext(GlobalContext);
+  if (!ctx) throw new Error("GlobalContext not available");
+  const { setToken, setIdUser } = ctx;
+  const router = useRouter();
 
   return (
-    <main className="flex  items-center justify-center">
+    <main className="flex md:flex-column items-center justify-center">
       <button
         data-drawer-target="default-sidebar"
         data-drawer-toggle="default-sidebar"
         aria-controls="default-sidebar"
         type="button"
-        className="inline-flex items-center p-2 mt-2 ms-3 text-sm text-gray-500 rounded-lg sm:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="inline-flex items-center p-2 mt-2 ms-3 text-sm text-gray-500 rounded-lg md:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600"
       >
         <span className="sr-only">Open sidebar</span>
         <svg
@@ -32,14 +41,19 @@ export default function Profil() {
           ></path>
         </svg>
       </button>
-
+      {sidebarOpen && (
+        <button
+          className="fixed inset-0 bg-black/40 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close sidebar"
+        ></button>
+      )}
       <aside
-        id="default-sidebar"
-        className="fixed top-0 left-0 z-40 w-64 h-screen transition-transform -translate-x-full sm:translate-x-0"
-        aria-label="Sidebar"
+        className={`fixed md:top-[15vh] top-0 left-0 z-40 w-64 md:h-[85vh] h-full bg-gray-50 shadow-lg transition-transform
+  ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
-        <div className="h-full px-3 py-4 overflow-y-auto bg-gray-50 dark:bg-gray-800  mt-[15vh]">
-          <ul className="space-y-2 font-medium flex flex-col justify-between h-[80vh]">
+        <div className="h-full px-3 py-4 overflow-y-auto bg-gray-50 dark:bg-gray-800">
+          <ul className="space-y-2 font-medium flex flex-col justify-between md:h-[80vh] h-full">
             <div>
               <li>
                 <button
@@ -84,6 +98,15 @@ export default function Profil() {
                 <a
                   href="#"
                   className="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group"
+                  onClick={() => {
+                    setToken(null);
+                    setIdUser(null);
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("idUser");
+                    sessionStorage.removeItem("token");
+                    sessionStorage.removeItem("idUser");
+                    router.push("/");
+                  }}
                 >
                   <Image
                     src={"/logout.svg"}
@@ -101,7 +124,7 @@ export default function Profil() {
         </div>
       </aside>
 
-      <div className="p-4 sm:ml-64 w-full">
+      <div className="p-4 md:ml-64 w-full">
         {activePage === "profile" ? (
           <UserProfilePage></UserProfilePage>
         ) : (

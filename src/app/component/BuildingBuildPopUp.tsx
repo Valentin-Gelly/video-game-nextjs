@@ -1,11 +1,12 @@
 import React from "react";
 import GameCard from "./GameCard";
 
-export default function BuildPopup({ isOpen, onClose, gameState, socket, handlePlayCard, getColorGradient, getBuildingRole }: {
+export default function BuildPopup({ isOpen, onClose, gameState, socket, handlePlayCard,handleDiscard, getColorGradient, getBuildingRole }: {
   readonly isOpen: any,
   readonly onClose: any,
   readonly gameState: any,
   readonly socket: any,
+  readonly handleDiscard: any,
   readonly handlePlayCard: any,
   readonly getColorGradient: any,
   readonly getBuildingRole: any,
@@ -39,6 +40,10 @@ export default function BuildPopup({ isOpen, onClose, gameState, socket, handleP
                 type={getBuildingRole(card.color)}
                 isPlayable={gameState.currentPlayerId === socket.id}
                 canBeBuilded={card.cost <= player.gold}
+                handleDiscard={() => {
+                  handleDiscard(card);
+                  onClose(); // 🟢 ferme la popup après construction
+                }}
                 handleBuildCard={() => {
                   handlePlayCard(card);
                   onClose(); // 🟢 ferme la popup après construction

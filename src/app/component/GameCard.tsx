@@ -13,6 +13,7 @@ export default function GameCard({
   isPlayable,
   canBeBuilded,
   handleBuildCard,
+  handleDiscard,
   isCondottiere,
   onDestroyHandler
 }: Readonly<{
@@ -27,6 +28,7 @@ export default function GameCard({
   isPlayable?: boolean;
   canBeBuilded?: boolean;
   handleBuildCard?: () => void;
+  handleDiscard?: () => void;
   isCondottiere?: boolean;
   onDestroyHandler?: () => void;
 }>) {
@@ -72,7 +74,7 @@ export default function GameCard({
       cancelButtonText: "Annuler",
     }).then((result) => {
       if (result.isConfirmed) {
-        handleBuildCard?.(); // 🔹 ou ajouter handleDiscard si tu veux séparer
+        handleDiscard?.(); 
         Swal.fire("Défaussée !", "La carte a été défaussée.", "success");
       }
     });

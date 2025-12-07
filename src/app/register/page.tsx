@@ -10,8 +10,8 @@ export default function RegisterPage() {
   const router = useRouter();
   const ctx = useContext(GlobalContext);
   if (!ctx) throw new Error("GlobalContext not available");
-  const { token} = ctx;
-  
+  const { token } = ctx;
+
   const [isLoading, setIsLoading] = useState(false);
 
   if (token) {
@@ -20,8 +20,8 @@ export default function RegisterPage() {
 
   const onSubmit = async (event: any) => {
     event.preventDefault();
-    console.log(event.target.elements);
     setIsLoading(true);
+
     const res = await fetch("/api/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -40,21 +40,21 @@ export default function RegisterPage() {
       Swal.fire({
         position: "top-end",
         icon: "success",
-        title: "Votre compte a été créer veuillez confirmer votre email",
+        title: "Votre compte a été créé, veuillez confirmer votre email",
         showConfirmButton: false,
         timer: 1500,
       });
-      setIsLoading(false);
     } else {
       Swal.fire({
         position: "top-end",
         icon: "error",
-        title: "" + result.error,
+        title: result.error,
         showConfirmButton: false,
         timer: 1500,
       });
-      setIsLoading(false);
     }
+
+    setIsLoading(false);
   };
 
   return (
@@ -66,45 +66,82 @@ export default function RegisterPage() {
         <h1 className="text-4xl sm:text-5xl font-bold text-center mb-6">
           Inscription
         </h1>
-        {/*//TODO: Ajouter dans la page de données personnel la possibilité de rajouter les données dans l'entité userpersonal data*/}
+
+        {/* FIRSTNAME + LASTNAME */}
         <div className="grid sm:grid-cols-2 gap-6">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="firstname" className="text-sm font-medium text-slate-700">
+              Prénom
+            </label>
+            <input
+              id="firstname"
+              name="firstname"
+              placeholder="Prénom"
+              required
+              className="px-4 py-3 rounded-full border border-slate-300 bg-slate-100 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="lastname" className="text-sm font-medium text-slate-700">
+              Nom
+            </label>
+            <input
+              id="lastname"
+              name="lastname"
+              placeholder="Nom"
+              required
+              className="px-4 py-3 rounded-full border border-slate-300 bg-slate-100 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        {/* USERNAME */}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="username" className="text-sm font-medium text-slate-700">
+            Nom d'utilisateur
+          </label>
           <input
-            name="firstname"
-            placeholder="Prénom"
-            required
-            className="px-4 py-3 rounded-full border border-slate-300 bg-slate-100 focus:outline-none"
-          />
-          <input
-            name="lastname"
-            placeholder="Nom"
+            id="username"
+            name="username"
+            placeholder="Nom d'utilisateur"
             required
             className="px-4 py-3 rounded-full border border-slate-300 bg-slate-100 focus:outline-none"
           />
         </div>
 
-        <input
-          name="username"
-          placeholder="Nom d'utilisateur"
-          required
-          className="px-4 py-3 rounded-full border border-slate-300 bg-slate-100 focus:outline-none"
-        />
-        <input
-          name="email"
-          type="email"
-          placeholder="Email"
-          required
-          className="px-4 py-3 rounded-full border border-slate-300 bg-slate-100 focus:outline-none"
-        />
+        {/* EMAIL */}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="email" className="text-sm font-medium text-slate-700">
+            Email
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="Email"
+            required
+            className="px-4 py-3 rounded-full border border-slate-300 bg-slate-100 focus:outline-none"
+          />
+        </div>
 
-        <input
-          name="password"
-          type="password"
-          placeholder="Mot de passe (min. 8 caractères)"
-          required
-          minLength={8}
-          className="px-4 py-3 rounded-full border border-slate-300 bg-slate-100 focus:outline-none"
-        />
+        {/* PASSWORD */}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="password" className="text-sm font-medium text-slate-700">
+            Mot de passe
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            placeholder="Mot de passe (min. 8 caractères)"
+            required
+            minLength={8}
+            className="px-4 py-3 rounded-full border border-slate-300 bg-slate-100 focus:outline-none"
+          />
+        </div>
 
+        {/* SUBMIT BUTTON */}
         <button
           type="submit"
           disabled={isLoading}

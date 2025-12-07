@@ -62,18 +62,32 @@ export default function Home() {
                 background: "linear-gradient(90deg, #4B4E6D, #7D5B3A)",
               }}>Connexion</Link>
           </div>
-        ) : <div className="text-center">
-          <Link
-            href="/games/lobby"
-            className="inline-block w-[50%] px-6 py-3 rounded-xl font-semibold text-white shadow-lg text-lg transition-transform duration-300 hover:scale-105"
-            style={{
-              background: "linear-gradient(90deg, #4B4E6D, #7D5B3A)",
-            }}
-          >
-            Se connecter à une partie
-          </Link>
-        </div>
-        }
+        ) : (
+          <>
+            <div className="hidden lg:block text-center">
+              <Link
+                href="/games/lobby"
+                className="inline-block w-[50%] px-6 py-3 rounded-xl font-semibold text-white shadow-lg text-lg transition-transform duration-300 hover:scale-105"
+                style={{
+                  background: "linear-gradient(90deg, #4B4E6D, #7D5B3A)",
+                }}
+              >
+                Se connecter à une partie
+              </Link>
+            </div>
+            <div className="lg:hidden text-center">
+              <div
+                className="inline-block w-[50%] px-6 py-3 rounded-xl font-semibold text-white shadow-lg text-lg opacity-50 cursor-not-allowed"
+                style={{
+                  background: "linear-gradient(90deg, #4B4E6D, #7D5B3A)",
+                }}
+              >
+                Se connecter à une partie
+              </div>
+              <p className="text-sm text-slate-600 mt-2">Accès réservé aux écrans larges (écran d'ordinateur)</p>
+            </div>
+          </>
+        )}
       </section>
       {/* Bouton principal */}
 

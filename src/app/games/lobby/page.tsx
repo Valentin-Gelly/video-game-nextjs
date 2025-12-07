@@ -18,11 +18,38 @@ export default function Lobby() {
   const [gameName, setGameName] = useState("");
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isScreenValid, setIsScreenValid] = useState(false);
   const ctx = useContext(GlobalContext);
   if (!ctx) throw new Error("GlobalContext not available");
   const { userName, idUser} = ctx;
 
   useEffect(() => {
+    const checkScreenSize = () => {
+      const isSmall = window.innerWidth < 1024; // lg breakpoint is 1024px
+      
+      if (isSmall) {
+        Swal.fire({
+          icon: "warning",
+          title: "Écran trop petit",
+          text: "Le jeu est accessible seulement pour les ordinateurs.",
+          didClose: () => {
+            router.push("/");
+          }
+        });
+        setIsScreenValid(false);
+      } else {
+        setIsScreenValid(true);
+      }
+    };
+    
+    checkScreenSize();
+    window.addEventListener("resize", checkScreenSize);
+    
+    return () => window.removeEventListener("resize", checkScreenSize);
+  }, [router]);
+
+  useEffect(() => {
+    if (!isScreenValid) return;
     socket.emit(
       "gameList",
       (res: {
@@ -50,7 +77,7 @@ export default function Lobby() {
       socket.off("gameState");
       socket.off("updatePlayers");
     };
-  }, []);
+  }, [isScreenValid]);
 
   async function handleCreateGame() {
     let gameId: string | undefined;

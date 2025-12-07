@@ -17,14 +17,14 @@ export default function Header() {
   return (
     <header
       className={
-        "absolute top-0 left-0 w-full flex items-center justify-between px-8 py-4 bg-white/60 backdrop-blur-xl shadow-md " +
+        "absolute  top-0 left-0 w-full flex items-center justify-between px-8 py-4 bg-white/60 backdrop-blur-xl shadow-md " +
         (pathname === "/games/game-table" ? "h-4" : "h-[15vh]")
       }
     >
 
       {!token ? (
         <>
-          <Link href="/">
+          <Link href="/" className="md:block hidden">
             <Image
               src="/logo.png"
               alt="Cita de l'or"
@@ -66,7 +66,7 @@ export default function Header() {
 
       {token && pathname !== "/games/game-table" ? (
         <>
-          <Link href="/">
+          <Link href="/" className="md:block hidden">
             <Image
               src="/logo.png"
               alt="Cita de l'or"
@@ -76,7 +76,7 @@ export default function Header() {
               className="object-contain "
             />
           </Link>
-          <div className="flex flex-end items-center space-x-4">
+          <div className="flex justify-around md:flex-end items-center space-x-4 md:w-auto w-full">
             <Link href="/dashboard/user">Mon profil</Link>
             <button
               onClick={() => {
