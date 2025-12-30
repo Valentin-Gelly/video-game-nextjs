@@ -253,13 +253,16 @@ export default function GamePage({
 
   const handleGameState = (res: any) => {
     if (!res) return;
-    if (res.gameState) return;
-    if (res.phase === "ENDED") return;
-    console.log("🌀 Nouveau gameState :", res);
-    console.log(gameState?.gameStep === "roleSelection",
+    const newState = (res.gameState ?? res) as any;
+    if (!newState) return;
+    if (newState.phase === "ENDED") return;
+    console.log("🌀 Nouveau gameState :", newState);
+    console.log(
+      newState?.gameStep === "roleSelection",
       !selectedRole,
-      gameState?.currentPlayerId == socket.id)
-    setGameState(res);
+      newState?.currentPlayerId == socket.id
+    );
+    setGameState(newState);
   };
   useEffect(() => {
     if (!gameState) return;
@@ -395,9 +398,6 @@ export default function GamePage({
               if (!value) {
                 return "Vous devez choisir un rôle à assassiner.";
               }
-              return null;
-            },
-            preConfirm: (value) => {
               return new Promise<void>((resolve, reject) => {
                 socket.emit(
                   "playerAction",
@@ -897,6 +897,7 @@ export default function GamePage({
                   <h2 className="text-white font-bold mb-2 text-center">
                     En attente du prochain rôle...
                   </h2>
+                  {gameState?.currentRole?.name}
                 </div>
               )}
               {/* Joueur principal */}

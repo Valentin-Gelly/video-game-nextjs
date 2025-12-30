@@ -38,7 +38,7 @@ function startDisconnectTimer(io: any, gameId: string, player: { idUser?: string
     try {
       const g = games.get(gameId);
       if (!g) return;
-      console.log(`Player ${player.name} did not reconnect — closing game ${gameId}`);
+      // console.log(`Player ${player.name} did not reconnect — closing game ${gameId}`);
       io.to(gameId).emit("gameClosed");
       // cleanup timers related to this game
       for (const k of Array.from(disconnectTimers.keys())) {
@@ -234,7 +234,7 @@ app.prepare().then(() => {
   io.on("connection", (socket) => {
 
     socket.on("disconnect", () => {
-      console.log("socket disconnected", socket.id);
+      // console.log("socket disconnected", socket.id);
     });
 
     socket.on("createGame", async (data, cb) => {
@@ -261,7 +261,7 @@ app.prepare().then(() => {
         games.set(g.id, { game: g, gameState: gameState });
 
         // 🔹 Création de la room
-        console.log("data.gameId", g.id);
+        // console.log("data.gameId", g.id);
         socket.join(g.id);
 
         socket.emit("updateGameList", games);
@@ -283,7 +283,7 @@ app.prepare().then(() => {
       );
 
       if (existingPlayer) {
-        console.log(`🔁 ${data.playerName} se reconnecte`);
+        // console.log(`🔁 ${data.playerName} se reconnecte`);
         // clear any pending disconnect timer for this player
         const key = getPlayerKey(data.gameId, existingPlayer);
         clearDisconnectTimerByKey(key);
@@ -394,6 +394,7 @@ app.prepare().then(() => {
       const remainingPlayers = g.gameState.players.filter(p => !p.role);
       if (remainingPlayers.length > 0) {
         g.gameState.currentPlayerId = remainingPlayers[0].id;
+        g.gameState.currentRole = undefined;
       } else {
         g.gameState.gameStep = "playerTurn";
         g.gameState.rolesPool = ROLES.map(r => r);
@@ -404,7 +405,7 @@ app.prepare().then(() => {
           return a.role.order - b.role.order;
         });
 
-        console.log('sortedPlayers', sortedPlayers);
+        // console.log('sortedPlayers', sortedPlayers);
         const firstPlayer = sortedPlayers[0];
         g.gameState.players = sortedPlayers;
 
@@ -412,6 +413,7 @@ app.prepare().then(() => {
           return cb({ ok: false, error: "No player found for first turn" });
         }
         g.gameState.currentPlayerId = firstPlayer.id;
+        g.gameState.currentRole = firstPlayer.role;
         io.to(gameId).emit("log", `${firstPlayer.name} commence le tour avec le rôle ${firstPlayer.role!.name} !`)
         io.to(gameId).emit("endRoleSelection");
         io.to(gameId).emit("gameState", g.gameState);
@@ -441,7 +443,7 @@ app.prepare().then(() => {
     });
 
     socket.on("playerAction", ({ gameId, playerId, action, actionDetail = '', targetRole = '', cardToKeep, playerTargeted, targetCard }, cb) => {
-      console.log('playerAction', action, actionDetail, targetRole, cardToKeep, playerTargeted, targetCard);
+      // console.log('playerAction', action, actionDetail, targetRole, cardToKeep, playerTargeted, targetCard);
       const g = games.get(gameId);
       if (!g) return cb({ ok: false, error: "Game not found" });
       const player = g.gameState.players.find((p) => p.id === playerId);
@@ -491,6 +493,7 @@ app.prepare().then(() => {
             io.to(gameId).emit("roundEnded", g.gameState);
           } else {
             g.gameState.currentPlayerId = g.gameState.players[nextIndex].id;
+            g.gameState.currentRole = g.gameState.players[nextIndex].role;
           }
 
           if (player.city.length >= 2) {
@@ -498,7 +501,7 @@ app.prepare().then(() => {
             g.gameState.gameStep = "ENDED";
             g.game.state = "FINISHED";
             g.game.ranking = computeGameResults(g.gameState);
-            console.log('Game ended, ranking:', g.game.ranking);
+            // console.log('Game ended, ranking:', g.game.ranking);
             io.to(gameId).emit("gameEnded", g.game);
             saveGame(g.game);
           }
@@ -510,7 +513,7 @@ app.prepare().then(() => {
         }
 
         case "discard": {
-          console.log("discard")
+          // console.log("discard")
           const card = player.hand.find((c) => c.id === cardToKeep.id);
           if (!card) return cb({ ok: false, error: "Card not in hand" });
 
@@ -528,6 +531,7 @@ app.prepare().then(() => {
             io.to(gameId).emit("roundEnded", g.gameState);
           } else {
             g.gameState.currentPlayerId = g.gameState.players[nextIndex].id;
+            g.gameState.currentRole = g.gameState.players[nextIndex].role;
           }
 
           if (player.city.length >= 2) {
@@ -535,7 +539,7 @@ app.prepare().then(() => {
             g.gameState.gameStep = "ENDED";
             g.game.state = "FINISHED";
             g.game.ranking = computeGameResults(g.gameState);
-            console.log('Game ended, ranking:', g.game.ranking);
+            // console.log('Game ended, ranking:', g.game.ranking);
             io.to(gameId).emit("gameEnded", g.game);
             saveGame(g.game);
           }
@@ -548,22 +552,20 @@ app.prepare().then(() => {
 
 
         case "roleSpecial":
-          console.log(actionDetail)
+          // console.log(actionDetail, targetRole)
           switch (actionDetail) {
             case "Assassin": {
               const targetPlayer = g.gameState.players.find(p => p.role?.name === targetRole);
-              console.log(targetPlayer)
+              // console.log(targetPlayer)
               if (targetPlayer) {
                 targetPlayer.isAlive = false;
               }
-              io.to(gameId).emit("log", `${player.name} a assassiné le ${targetRole} !`);
               io.to(gameId).emit("gameState", g.gameState);
               io.to(gameId).emit("announce", `${player.name} a assassiné le ${targetRole} !`);
               break;
             }
 
             case "Voleur": {
-              const targetRole = cb?.targetRole;
               const target = g.gameState.players.find(p => p.role === targetRole && p.isAlive);
               g.gameState.stolenPlayerId = target?.id;
               io.to(gameId).emit("gameState", g.gameState);
@@ -574,7 +576,7 @@ app.prepare().then(() => {
             case "swapHand": {
               if (playerTargeted) {
                 const target = g.gameState.players.find(p => p.id === playerTargeted);
-                console.log('target', target)
+                // console.log('target', target)
                 if (!target) return cb({ ok: false, error: "Target not found" });
                 const temp = player.hand;
                 player.hand = target.hand;
@@ -714,11 +716,13 @@ app.prepare().then(() => {
         nextPlayer = g.gameState.players.find((p) => p.role?.name === nextRole);
         if (nextPlayer) break;
       }
-
+      console.log('current role', current.role);
+      console.log('next role', nextPlayer?.role);
       if (!nextPlayer) {
         g.gameState.phase = "endRound";
         setNewRound(g)
         io.to(gameId).emit("roundEnded", g.gameState);
+        g.gameState.currentRole = undefined;
         return cb({ ok: true, message: "Round ended" });
       } else if (nextPlayer.isAlive === false) {
         g.gameState.currentRole = nextPlayer.role;
@@ -739,6 +743,8 @@ app.prepare().then(() => {
         return cb({ ok: true, message: "Next player was assassinated, skipping turn" });
       }
       g.gameState.currentPlayerId = nextPlayer.id;
+      g.gameState.currentRole = nextPlayer.role;
+      console.log('nextPlayer', g.gameState.currentRole);
       io.to(gameId).emit("gameState", g.gameState);
       io.to(gameId).emit("nextPlayer", { nextPlayerId: nextPlayer.id, role: nextPlayer.role });
       cb({ ok: true });
@@ -754,7 +760,7 @@ app.prepare().then(() => {
     socket.on('startNextRound', ({ gameId }, cb) => {
       const g = games.get(gameId);
       if (g) {
-        console.log('startNextRound', gameId);
+        // console.log('startNextRound', gameId);
         setNewRound(g);
         io.to(gameId).emit("gameState", g.gameState);
         cb({ ok: true });
@@ -768,7 +774,7 @@ app.prepare().then(() => {
       process.exit(1);
     })
     .listen(port, () => {
-      console.log(`🚀 Serveur Next.js prêt sur http://${hostname}:${port}`);
+      // console.log(`🚀 Serveur Next.js prêt sur http://${hostname}:${port}`);
       console.log(
         `📡 Serveur Socket.IO actif avec gestion des rooms et historique d'actions`
       );
