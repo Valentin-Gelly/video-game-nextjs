@@ -7,7 +7,13 @@ import ClientOnly from "./component/ClientOnly";
 export const metadata: Metadata = {
   title: "Si t'as de l'or",
   description: "Jeu de société en ligne inspiré de Citadelles ",
+  icons: {
+    icon: "/game/coin.png",
+    shortcut: "/game/coin.png",
+    apple: "/game/coin.png",
+  },
 };
+
 
 export default function RootLayout({
   children,
