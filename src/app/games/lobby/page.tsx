@@ -139,11 +139,11 @@ export default function Lobby() {
           Créer une partie
         </button>
         <dialog id="my_modal_1" className="modal">
-          <div className="modal-box bg-white rounded-2xl shadow-lg border border-[#A8D8B9]">
-            <h3 className="font-bold text-lg text-[#4B4E6D]">
+          <div className="modal-box bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-[#A8D8B9] dark:border-gray-700 text-black dark:text-white">
+            <h3 className="font-bold text-lg text-[#4B4E6D] dark:text-white">
               Créer votre propre partie
             </h3>
-            <p className="py-4 text-slate-600">
+            <p className="py-4 text-slate-600 dark:text-slate-300">
               Choisissez un nom et une description pour votre partie.
             </p>
 
@@ -158,7 +158,7 @@ export default function Lobby() {
                 placeholder="Nom de la partie"
                 value={gameName}
                 onChange={(e) => setGameName(e.target.value)}
-                className="input input-bordered w-full border-[#A8D8B9]"
+                className="input input-bordered w-full border-[#A8D8B9] dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 required
               />
 
@@ -167,14 +167,14 @@ export default function Lobby() {
                 placeholder="Description (facultatif)"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="textarea textarea-bordered w-full border-[#A8D8B9]"
+                className="textarea textarea-bordered w-full border-[#A8D8B9] dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 rows={3}
               ></textarea>
 
               <div className="modal-action flex justify-end gap-4 mt-6">
                 <button
                   type="button"
-                  className="btn btn-ghost"
+                  className="btn btn-ghost dark:text-white"
                   disabled={isLoading}
                   onClick={() => {
                     const modal = document.getElementById(
@@ -189,7 +189,7 @@ export default function Lobby() {
                 <button
                   type="button"
                   disabled={isLoading}
-                  className="btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] transition-all"
+                  className="btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] transition-all dark:bg-[#2b2f3a] dark:hover:bg-[#3a4150]"
                   onClick={handleCreateGame}
                 >
                   {isLoading ? (

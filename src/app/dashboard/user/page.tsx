@@ -7,6 +7,7 @@ import UserProfilePage from "@/app/dashboard/user/userProfilePage";
 import { useContext } from "react";
 import { GlobalContext } from "@/context/globalContext";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function Profil() {
   const [activePage, setActivePage] = useState("profile");
@@ -24,9 +25,9 @@ export default function Profil() {
         aria-controls="default-sidebar"
         type="button"
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="inline-flex items-center p-2 mt-2 ms-3 text-sm text-gray-500 rounded-lg md:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600"
+        className="inline-flex items-center p-2 mt-2 ms-3 text-sm text-black rounded-lg md:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-white dark:hover:bg-gray-700 dark:focus:ring-gray-600"
       >
-        <span className="sr-only">Open sidebar</span>
+        <span className="sr-only"></span>
         <svg
           className="w-6 h-6"
           aria-hidden="true"
@@ -54,14 +55,26 @@ export default function Profil() {
       >
         <div className="h-full px-3 py-4 overflow-y-auto bg-gray-50 dark:bg-gray-800">
           <ul className="space-y-2 font-medium flex flex-col justify-between md:h-[80vh] h-full">
-            <div>
+            <div className="flex flex-col gap-4">
+              <>
+                <Link href="/" className="block md:hidden">
+                  <Image
+                    src="/logo.png"
+                    alt="Cita de l'or"
+                    width={350}
+                    height={40}
+                    priority
+                    className="object-contain dark:invert"
+                  />
+                </Link>
+              </>
               <li>
                 <button
                   onClick={() => setActivePage("profile")}
                   className={`cursor-pointer flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group w-full ${activePage === "profile" ? "bg-gray-200 dark:bg-gray-700" : ""}`}
                 >
                   <svg
-                    className="w-5 h-5 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
+                    className="w-5 h-5 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                     aria-hidden="true"
                     xmlns="http://www.w3.org/2000/svg"
                     fill="currentColor"
@@ -79,7 +92,7 @@ export default function Profil() {
                   className={`w-full cursor-pointer flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group ${activePage === "games" ? "bg-gray-200 dark:bg-gray-700" : ""}`}
                 >
                   <svg
-                    className="shrink-0 w-5 h-5 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
+                    className="shrink-0 w-5 h-5 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                     aria-hidden="true"
                     xmlns="http://www.w3.org/2000/svg"
                     fill="currentColor"
@@ -87,9 +100,7 @@ export default function Profil() {
                   >
                     <path d="M6.143 0H1.857A1.857 1.857 0 0 0 0 1.857v4.286C0 7.169.831 8 1.857 8h4.286A1.857 1.857 0 0 0 8 6.143V1.857A1.857 1.857 0 0 0 6.143 0Zm10 0h-4.286A1.857 1.857 0 0 0 10 1.857v4.286C10 7.169 10.831 8 11.857 8h4.286A1.857 1.857 0 0 0 18 6.143V1.857A1.857 1.857 0 0 0 16.143 0Zm-10 10H1.857A1.857 1.857 0 0 0 0 11.857v4.286C0 17.169.831 18 1.857 18h4.286A1.857 1.857 0 0 0 8 16.143v-4.286A1.857 1.857 0 0 0 6.143 10Zm10 0h-4.286A1.857 1.857 0 0 0 10 11.857v4.286c0 1.026.831 1.857 1.857 1.857h4.286A1.857 1.857 0 0 0 18 16.143v-4.286A1.857 1.857 0 0 0 16.143 10Z" />
                   </svg>
-                  <span className="flex-1 ms-3 whitespace-nowrap">
-                    Historique des partie
-                  </span>
+                  <span className="ms-3">Historique des parties</span>
                 </button>
               </li>
             </div>

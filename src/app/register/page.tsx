@@ -58,10 +58,10 @@ export default function RegisterPage() {
   };
 
   return (
-    <section className="w-full flex align-middle justify-center items-center flex-col h-[85vh]">
+    <section className="w-full flex align-middle justify-center items-center flex-col">
       <form
         onSubmit={onSubmit}
-        className="grid gap-6 bg-white/60 backdrop-blur-xl p-8 sm:p-10 rounded-3xl shadow-lg w-full max-w-3xl mx-auto mt-[15vh]"
+        className="grid gap-6 bg-white/60 backdrop-blur-xl p-8 sm:p-10 rounded-3xl shadow-lg w-full max-w-3xl mx-auto mt-[20vh]"
       >
         <h1 className="text-4xl sm:text-5xl font-bold text-center mb-6">
           Inscription

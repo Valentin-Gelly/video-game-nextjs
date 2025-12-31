@@ -1094,7 +1094,7 @@ export default function GamePage({
                   {
                     isHost && (
                       <button
-                        onClick={handleEndGame}
+                        onClick={closeGame}
                         className="btn bg-[#4B4E6D] text-white hover:bg-[#7D5B3A] mb-2"
                       >
                         Fermer la partie

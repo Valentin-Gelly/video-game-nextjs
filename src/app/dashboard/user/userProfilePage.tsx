@@ -86,17 +86,21 @@ export default function UserProfilePage() {
           editableFields.includes(field) ? "bg-white border-[#7D5B3A]" : ""
         }`}
       />
-      <button
-        type="button"
-        onClick={() => toggleEditable(field)}
-        className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
-          editableFields.includes(field)
-            ? "bg-[#A8D8B9] text-[#4B4E6D]"
-            : "bg-[#C2B280] text-[#4B4E6D]"
-        }`}
-      >
-        {editableFields.includes(field) ? <PencilOff /> : <Pencil />}
-      </button>
+      {label !== "Email" ? (
+        <button
+          type="button"
+          onClick={() => toggleEditable(field)}
+          className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex justify-center ${
+            editableFields.includes(field)
+              ? "bg-[#A8D8B9] text-[#4B4E6D]"
+              : "bg-[#C2B280] text-[#4B4E6D]"
+          }`}
+        >
+          {editableFields.includes(field) ? <PencilOff /> : <Pencil />}
+        </button>
+      ) : (
+        ""
+      )}
     </div>
   );
 

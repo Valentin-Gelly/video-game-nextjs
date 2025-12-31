@@ -18,7 +18,7 @@ export default function BuildPopup({ isOpen, onClose, gameState, socket, handleP
 
   return (
     <div className="fixed inset-0 backdrop-blur-xs flex justify-center items-center z-50">
-      <div className="bg-white rounded-xl shadow-lg p-6 w-11/12 max-w-3xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-6 w-11/12 max-w-3xl max-h-[90vh] overflow-y-auto text-black dark:text-white">
 
         {/* TITRE */}
         <h2 className="text-2xl font-bold mb-4 text-center">
@@ -51,7 +51,7 @@ export default function BuildPopup({ isOpen, onClose, gameState, socket, handleP
               />
             ))
           ) : (
-            <p className="text-center text-gray-600">Chargement des cartes...</p>
+            <p className="text-center text-gray-600 dark:text-slate-300">Chargement des cartes...</p>
           )}
         </div>
 
@@ -59,7 +59,7 @@ export default function BuildPopup({ isOpen, onClose, gameState, socket, handleP
         <div className="flex justify-center mt-6">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400"
+            className="px-4 py-2 bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg hover:bg-gray-400 text-black dark:text-white"
           >
             Fermer
           </button>

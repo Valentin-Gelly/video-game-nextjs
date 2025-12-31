@@ -31,7 +31,9 @@ export default function GameList() {
 
         if (response.ok) {
           const data = await response.json();
-          setScores(data);
+          if (data && Array.isArray(data)){
+            setScores(data);
+          }
         } else {
           console.error("Erreur lors de la récupération des scores");
         }
