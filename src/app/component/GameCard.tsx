@@ -131,8 +131,8 @@ export default function GameCard({
         </div>
       </div>
       <dialog id={`my_modal_` + id} className="modal">
-        <div className="modal-box bg-white rounded-2xl shadow-lg border border-[#A8D8B9]">
-          <h3 className="font-bold text-lg text-[#4B4E6D]">Batiment {name}</h3>
+        <div className="modal-box bg-white rounded-2xl shadow-lg border border-[#A8D8B9]  text-[#4B4E6D]">
+          <h3 className="font-bold text-lg">Batiment {name}</h3>
           <p>Type de batiment : {type}</p>
           <p className="py-4 text-slate-600">{description}</p>
           <p>prix du batiment {price}</p>
